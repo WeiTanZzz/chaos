@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and adjust. Prefer exporting VULTR_API_KEY over
+# putting the key here so it stays out of the file.
+# vultr_api_key = "your-api-key"
+
+label    = "chaos-instance"
+hostname = "chaos-instance"
+region   = "sea"
+plan     = "vc2-1c-1gb"
+os_id    = 1743
+
+enable_ipv6     = true
+backups_enabled = false
+tags            = ["chaos"]
+
+# ssh_public_key_path = "~/.ssh/id_ed25519.pub"
