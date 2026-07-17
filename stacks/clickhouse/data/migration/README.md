@@ -3,6 +3,24 @@
 Copies `.ds-entities_history_stream_01-*` from Elasticsearch into the
 `entity_history_test` table in a local ClickHouse. Read-only against ES.
 
+## Prerequisites
+
+- Docker (for ClickHouse)
+- Python 3.9+ with `venv`
+
+On Debian/Ubuntu the `venv` module ships separately — if `python3 -m venv`
+fails with *"ensurepip is not available"*, install it first (match your Python
+version, e.g. `python3.14-venv`):
+
+```sh
+sudo apt update
+sudo apt install python3-venv python3-full
+```
+
+> Don't `pip install` into the system Python. Newer distros mark it
+> *externally-managed* (PEP 668) and will refuse. Always use the venv below;
+> avoid `--break-system-packages`.
+
 ## Run
 
 ```sh
@@ -21,6 +39,36 @@ set -a; source .env; set +a
 # 4. Migrate
 python migrate.py
 ```
+
+## Large migrations (100M+ docs) & resume
+
+A full stream (~365M docs) runs single-threaded at a few thousand rows/s — plan
+for many hours. Run it detached so it survives an SSH disconnect, and tune the
+batch/PIT knobs:
+
+```sh
+export BATCH_SIZE=10000
+export ES_PIT_KEEP_ALIVE=10m
+nohup python migrate.py > migrate.$(date +%F_%H%M).log 2>&1 &
+tail -f migrate.*.log        # watch `total` and `rows/s`
+```
+
+`nohup` ignores SIGHUP, so closing the terminal is safe. Reattach later with
+`tail -f` / `ps aux | grep migrate.py`.
+
+**Resume** — the run checkpoints after every confirmed insert to
+`migrate.checkpoint.json` (the `@timestamp` reached plus the ES `_id`s already
+inserted at that exact millisecond). If it dies partway, just start it again:
+it reopens a fresh Point-in-Time filtered to `@timestamp >=` the last reached
+millisecond and skips the boundary docs it already wrote — no gaps, no
+duplicates. The file is deleted automatically on successful completion, so the
+next run starts clean.
+
+- To force a full restart, delete `migrate.checkpoint.json` first.
+- Override the location with `CHECKPOINT_FILE=/path/to/checkpoint.json`.
+- Resume relies on `@timestamp` being the primary sort key. `_shard_doc` (the
+  in-run tiebreaker) is PIT-local and deliberately *not* checkpointed — reusing
+  it across PITs would silently skip documents.
 
 ## Behaviour
 

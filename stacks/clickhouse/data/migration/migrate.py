@@ -9,6 +9,7 @@ variables (see .env.example).
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -26,6 +27,7 @@ BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "5000"))
 PIT_KEEP_ALIVE = os.environ.get("ES_PIT_KEEP_ALIVE", "2m")
 TABLE_NAME = "entity_history_test"
 SCHEMA_FILE = Path(__file__).resolve().parents[2] / "schema" / "entity_history_test.sql"
+CHECKPOINT_FILE = Path(os.environ.get("CHECKPOINT_FILE", Path(__file__).resolve().parent / "migrate.checkpoint.json"))
 
 # Order here must match the row lists built in build_row().
 COLUMNS = [
@@ -86,6 +88,24 @@ def create_table(clickhouse) -> None:
     ddl = SCHEMA_FILE.read_text().strip().rstrip(";")
     clickhouse.command(ddl)
     LOG.info("ensured table %s exists", TABLE_NAME)
+
+
+def load_checkpoint() -> dict | None:
+    """Resume point from a previous run: the @timestamp (epoch millis) reached
+    and the ES _ids already inserted at exactly that millisecond. Returns None
+    for a fresh run.
+    """
+    if not CHECKPOINT_FILE.exists():
+        return None
+    data = json.loads(CHECKPOINT_FILE.read_text())
+    return {"after_millis": int(data["after_millis"]), "seen_ids": set(data["seen_ids"])}
+
+
+def save_checkpoint(after_millis: int, seen_ids: set) -> None:
+    """Atomic write (temp + rename) so a crash mid-write can't corrupt the file."""
+    temp_file = CHECKPOINT_FILE.with_suffix(".tmp")
+    temp_file.write_text(json.dumps({"after_millis": after_millis, "seen_ids": sorted(seen_ids)}))
+    temp_file.replace(CHECKPOINT_FILE)
 
 
 def parse_datetime(value) -> datetime:
@@ -252,14 +272,24 @@ def build_row(source: dict, dropped: Counter, multivalue: Counter, skipped: Coun
     ]
 
 
-def iterate_documents(elasticsearch: Elasticsearch):
-    """Yield lists of _source dicts, one list per BATCH_SIZE page, via PIT + search_after."""
+def iterate_documents(elasticsearch: Elasticsearch, resume_after_millis: int | None = None):
+    """Yield lists of hits, one list per BATCH_SIZE page, via PIT + search_after.
+
+    _shard_doc is a PIT-local tiebreaker, so a search_after value from one PIT is
+    meaningless in another — it cannot be checkpointed across process restarts.
+    To resume, we instead reopen a fresh PIT and filter @timestamp >= the last
+    reached millisecond; the caller skips the boundary docs it already inserted.
+    """
     pit_id = elasticsearch.open_point_in_time(index=INDEX_PATTERN, keep_alive=PIT_KEEP_ALIVE)["id"]
+    query = {"match_all": {}}
+    if resume_after_millis is not None:
+        query = {"range": {"@timestamp": {"gte": resume_after_millis, "format": "epoch_millis"}}}
     search_after = None
     try:
         while True:
             params = {
                 "size": BATCH_SIZE,
+                "query": query,
                 # _shard_doc is a stable tiebreaker only available with a PIT.
                 "sort": [{"@timestamp": "asc"}, {"_shard_doc": "asc"}],
                 "track_total_hits": False,
@@ -277,7 +307,7 @@ def iterate_documents(elasticsearch: Elasticsearch):
             if refreshed_pit:
                 pit_id = refreshed_pit
 
-            yield [hit.get("_source", {}) for hit in hits]
+            yield hits
             search_after = hits[-1]["sort"]
     finally:
         try:
@@ -293,6 +323,16 @@ def main() -> None:
     clickhouse = build_clickhouse_client()
     create_table(clickhouse)
 
+    checkpoint = load_checkpoint()
+    resume_after = checkpoint["after_millis"] if checkpoint is not None else None
+    # Boundary docs already inserted at exactly resume_after; skipped on the way back in.
+    seen_ids = checkpoint["seen_ids"] if checkpoint is not None else set()
+    boundary_ts = resume_after
+    boundary_ids = set(seen_ids)
+
+    if checkpoint is not None:
+        LOG.info("resuming from checkpoint: @timestamp >= %d, skipping %d already-inserted boundary docs", resume_after, len(seen_ids))
+
     dropped: Counter = Counter()
     multivalue: Counter = Counter()
     skipped: Counter = Counter()
@@ -301,16 +341,31 @@ def main() -> None:
 
     LOG.info("migrating %s -> %s (batch size %d)", INDEX_PATTERN, TABLE_NAME, BATCH_SIZE)
 
-    for batch_index, sources in enumerate(iterate_documents(elasticsearch)):
-        rows = [row for row in (build_row(source, dropped, multivalue, skipped) for source in sources) if row is not None]
-        if not rows:
+    for batch_index, hits in enumerate(iterate_documents(elasticsearch, resume_after_millis=resume_after)):
+        if seen_ids:
+            hits = [hit for hit in hits if not (hit["sort"][0] == resume_after and hit["_id"] in seen_ids)]
+        if not hits:
             continue
-        try:
-            clickhouse.insert(TABLE_NAME, rows, column_names=COLUMNS)
-        except Exception as exc:
-            raise RuntimeError(f"ClickHouse insert failed for batch {batch_index}") from exc
 
-        total_rows += len(rows)
+        sources = [hit.get("_source", {}) for hit in hits]
+        rows = [row for row in (build_row(source, dropped, multivalue, skipped) for source in sources) if row is not None]
+        if rows:
+            try:
+                clickhouse.insert(TABLE_NAME, rows, column_names=COLUMNS)
+            except Exception as exc:
+                raise RuntimeError(f"ClickHouse insert failed for batch {batch_index}") from exc
+            total_rows += len(rows)
+
+        # Checkpoint only after the insert is confirmed. Track every _id at the
+        # last millisecond of this batch so a resume can skip exactly those.
+        batch_last_ts = hits[-1]["sort"][0]
+        if batch_last_ts == boundary_ts:
+            boundary_ids.update(hit["_id"] for hit in hits if hit["sort"][0] == batch_last_ts)
+        else:
+            boundary_ts = batch_last_ts
+            boundary_ids = set(hit["_id"] for hit in hits if hit["sort"][0] == batch_last_ts)
+        save_checkpoint(boundary_ts, boundary_ids)
+
         elapsed = time.monotonic() - started
         rate = total_rows / elapsed if elapsed > 0 else 0
         LOG.info(
@@ -323,6 +378,10 @@ def main() -> None:
 
     elapsed = time.monotonic() - started
     total_dropped = sum(dropped.values())
+
+    if CHECKPOINT_FILE.exists():
+        CHECKPOINT_FILE.unlink()
+        LOG.info("removed checkpoint (migration complete)")
 
     LOG.info("migration complete: %d rows in %.1fs", total_rows, elapsed)
     if skipped:

@@ -2,3 +2,6 @@
 .venv/
 __pycache__/
 *.pyc
+migrate.checkpoint.json
+migrate.checkpoint.tmp
+migrate.*.log
