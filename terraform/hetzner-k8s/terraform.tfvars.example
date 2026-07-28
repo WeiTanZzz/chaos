@@ -1,0 +1,59 @@
+# Copy to terraform.tfvars and fill in. Prefer exporting TF_VAR_hcloud_token over
+# putting the token here so it stays out of the file.
+hcloud_token = "your-api-token"
+
+cluster_name   = "chaos-k8s"
+network_region = "eu-central"
+
+ssh_public_key_path  = "~/.ssh/id_ed25519.pub"
+ssh_private_key_path = "~/.ssh/id_ed25519"
+
+# Keep the total control plane count odd (1, 3, 5) for etcd quorum.
+# labels: k8s node labels ("key=value"); taints: k8s node taints ("key=value:NoSchedule").
+# One pool per control plane node allows rolling server_type upgrades without
+# losing etcd quorum (change one pool, apply, repeat).
+control_plane_nodepools = [
+  {
+    name        = "control-plane-fsn1-1"
+    server_type = "cx23"
+    location    = "fsn1"
+    labels      = []
+    taints      = []
+    count       = 1
+  },
+  {
+    name        = "control-plane-fsn1-2"
+    server_type = "cx23"
+    location    = "fsn1"
+    labels      = []
+    taints      = []
+    count       = 1
+  },
+  {
+    name        = "control-plane-fsn1-3"
+    server_type = "cx23"
+    location    = "fsn1"
+    labels      = []
+    taints      = []
+    count       = 1
+  }
+]
+
+# Worker pools; scale by changing count or adding pools.
+agent_nodepools = [
+  {
+    name        = "worker-fsn1"
+    server_type = "cx23"
+    location    = "fsn1"
+    labels      = []
+    taints      = []
+    count       = 2
+  }
+]
+
+# Allow regular workloads on control planes; only set true when running
+# without any worker pools.
+allow_scheduling_on_control_plane = false
+
+# traefik, nginx, haproxy or none. Anything but none creates a Hetzner LB (~€6/mo).
+ingress_controller = "none"

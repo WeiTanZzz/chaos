@@ -1,0 +1,9 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+crash.log
+*_kubeconfig.yaml
+plans-custom.yaml
+kustomization_backup.yaml

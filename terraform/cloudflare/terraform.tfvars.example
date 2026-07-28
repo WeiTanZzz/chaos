@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and adjust. Prefer exporting CLOUDFLARE_API_TOKEN
+# over putting the token here so it stays out of the file.
+# cloudflare_api_token = "your-api-token"
+
+# Key is the zone name, value maps subdomains to IPv4 addresses.
+# Use "@" for the zone apex.
+zones = {
+  "example.com" = {
+    "@"   = "203.0.113.10"
+    "www" = "203.0.113.10"
+    "api" = "203.0.113.20"
+  }
+}
+
+proxied = true
