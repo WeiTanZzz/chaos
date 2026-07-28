@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and adjust. Prefer exporting HCLOUD_TOKEN over
+# putting the token here so it stays out of the file.
+# hcloud_token = "your-api-token"
+
+name        = "chaos-instance"
+location    = "fsn1"
+server_type = "cx23"
+image       = "ubuntu-22.04"
+
+enable_ipv6     = true
+backups_enabled = false
+labels          = { purpose = "chaos" }
+
+# ssh_public_key_path = "~/.ssh/id_ed25519.pub"
