@@ -9,6 +9,7 @@
     },
     "dependencies": {
         "@chaos/api": "workspace:*",
+        "@chaos/schema": "workspace:*",
         "hono": "^4.13.4"
     }
 }

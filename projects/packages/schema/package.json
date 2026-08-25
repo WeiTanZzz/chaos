@@ -1,15 +1,13 @@
 {
-    "name": "@chaos/items",
+    "name": "@chaos/schema",
     "version": "0.0.0",
     "private": true,
     "type": "module",
+    "sideEffects": false,
     "exports": {
         ".": "./src/index.ts"
     },
     "dependencies": {
-        "@chaos/capability": "workspace:*",
-        "@chaos/db": "workspace:*",
-        "drizzle-orm": "^0.45.2",
         "zod": "^4.4.3"
     }
 }

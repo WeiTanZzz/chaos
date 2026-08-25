@@ -12,6 +12,8 @@ type Spec<N extends string, S extends z.ZodRawShape, O, Ctx> = {
     title?: string
     description: string
     input: S
+    /** Declares the response contract: it types the handler's return and documents the 200 response. */
+    output?: z.ZodType<O>
     handler: (input: z.infer<z.ZodObject<S>>, ctx: Ctx) => Promise<O>
 }
 
@@ -26,6 +28,7 @@ export type Capability<
     title?: string
     description: string
     input: S
+    output: z.ZodType<O> | undefined
     route: R
     mcp: boolean
     run: (raw: unknown, ctx: Ctx) => Promise<O>
@@ -51,6 +54,7 @@ const build = (spec: Spec<string, z.ZodRawShape, unknown, unknown> & { route?: R
     title: spec.title,
     description: spec.description,
     input: spec.input,
+    output: spec.output,
     route: spec.route,
     mcp: spec.mcp ?? false,
     run: async (raw, ctx) => {

@@ -8,22 +8,28 @@ local folders.
 
 ```
 apps/
-  api          @chaos/api         the service: http api + mcp endpoint, config, wiring, entry
+  api          @chaos/api         http api + mcp endpoint: capabilities, db, config, entry
   web          @chaos/web         small frontend on the typed client, proxies /api -> the service
 packages/
   capability   @chaos/capability  declare once -> http route + mcp tool + openapi + client types
-  db           @chaos/db          drizzle schema and sqlite client
-  items        @chaos/items       the item capabilities
+  schema       @chaos/schema      the wire contract: zod input shapes and output schemas
 ```
 
+Only two things are shared. `@chaos/capability` is the mechanism; `@chaos/schema` is the contract — zod and
+nothing else, so a browser can import it without dragging in Drizzle, Hono or the MCP SDK. Everything
+app-specific (db schema, db client, the item capabilities) lives in `apps/api`, because nothing else consumes it.
+
+Both shared packages set `"sideEffects": false`, which is what makes per-export tree-shaking work: an unused
+export from `@chaos/schema` is dropped from the web bundle, and without that flag it is not (measured, not
+assumed).
+
 `@chaos/capability` knows nothing about this app: `createCapability<Ctx>()` binds the factory to whatever context
-the handlers should receive, so the package has no dependency on Drizzle or on any domain type. A domain package
-declares the slice of context it needs and the app supplies something that satisfies it —
-`packages/items/src/context.ts`:
+the handlers should receive, so the package has no dependency on Drizzle or on any domain type. The app declares
+its own context in `apps/api/src/context.ts`:
 
 ```ts
-export type ItemsContext = { db: () => Db }
-export const capability = createCapability<ItemsContext>()
+export type Deps = { db: () => Db }
+export const capability = createCapability<Deps>()
 ```
 
 ## Run
@@ -61,12 +67,18 @@ copy of the contract.
 export const listItems = capability({
     name: "items_list",                          // MCP tool name
     description: "List items, newest first.",
-    input: { limit: z.coerce.number().int().min(1).max(100).default(20) },
+    input: listItemsInput,                       // from @chaos/schema
+    output: listItemsOutput,                     // from @chaos/schema
     route: { method: "get", path: "/items" },    // HTTP surface
     mcp: true,                                   // opt in as an MCP tool (default: false)
-    handler: async ({ limit }, { db }) => db().select().from(items).limit(limit)
+    handler: async ({ limit }, { db }) => (await db().select().from(items).limit(limit)).map(toItem)
 })
 ```
+
+`input` validates the request and becomes the tool's JSON Schema. `output` is optional: when present it types the
+handler's return value and fills in the 200 response schema in `/openapi.json`. Both live in `@chaos/schema`, so
+the frontend imports exactly the same definitions — `Item` in `apps/web` is `z.infer` of the schema the handler
+is checked against.
 
 Add it to `apps/api/src/capabilities/index.ts` and the HTTP route is live. Path params, query string (GET/DELETE)
 and JSON body (POST/PUT/PATCH) all feed the same validated input object.
@@ -122,7 +134,7 @@ and capability code never knows which driver it got.
 
 The SQLite driver is the one deliberate exception to the table above: `bun:sqlite` is a Bun builtin, so the
 storage layer no longer runs on Workers or Node. It is a test-time choice. Swapping
-`packages/db/src/client.ts` back to `drizzle-orm/postgres-js` (or `drizzle-orm/libsql`) restores portability —
+`apps/api/src/db/client.ts` back to `drizzle-orm/postgres-js` (or `drizzle-orm/libsql`) restores portability —
 nothing outside that file knows the difference.
 
 ### Kubernetes / any container
@@ -138,7 +150,7 @@ cd apps/api && npx wrangler deploy
 ```
 
 `wrangler.jsonc` sets `nodejs_compat`. This works only once the storage layer is off `bun:sqlite` — swap
-`packages/db/src/client.ts` for postgres.js with Hyperdrive, or libsql.
+`apps/api/src/db/client.ts` for postgres.js with Hyperdrive, or libsql.
 
 ### Node
 
@@ -156,8 +168,8 @@ bun run db:generate
 bun run db:migrate
 ```
 
-To switch dialect, replace the driver in `packages/db/src/client.ts`, the `drizzle-orm/sqlite-core` imports in
-`packages/db/src/schema.ts`, and `dialect` in `apps/api/drizzle.config.ts`.
+To switch dialect, replace the driver in `apps/api/src/db/client.ts`, the `drizzle-orm/sqlite-core` imports in
+`apps/api/src/db/schema.ts`, and `dialect` in `apps/api/drizzle.config.ts`.
 
 ## Lint, format, test
 

@@ -14,8 +14,11 @@ const toOpenApiPath = (path: string) => path.replace(/:([^/]+)/g, "{$1}")
 
 const inputSchema = (cap: AnyCapability<never>) => z.toJSONSchema(z.object(cap.input), { io: "input" }) as JsonSchema
 
-const jsonResponses = {
-    "200": { description: "Capability result", content: { "application/json": {} } },
+const jsonResponses = (cap: AnyCapability<never>) => ({
+    "200": {
+        description: "Capability result",
+        content: { "application/json": cap.output === undefined ? {} : { schema: z.toJSONSchema(cap.output, { io: "output" }) } }
+    },
     "400": {
         description: "Input failed validation",
         content: {
@@ -24,7 +27,7 @@ const jsonResponses = {
             }
         }
     }
-}
+})
 
 const operation = (cap: AnyCapability<never>, method: Method, path: string) => {
     const schema = inputSchema(cap)
@@ -57,7 +60,7 @@ const operation = (cap: AnyCapability<never>, method: Method, path: string) => {
                   }
               }
             : {}),
-        responses: jsonResponses
+        responses: jsonResponses(cap)
     }
 }
 

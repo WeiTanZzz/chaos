@@ -86,9 +86,12 @@ const operationCard = (path, method, operation) => {
         el("span", { className: "path", textContent: path }),
         el("span", { className: "desc", textContent: operation["x-mcp-tool"] ? "also mcp tool" : "" })
     ])
+    const response = operation.responses?.["200"]?.content?.["application/json"]?.schema
     const body = el("div", { className: "body" }, [
         el("p", { className: "sub", textContent: operation.description ?? "" }),
-        table(paramRows(operation))
+        table(paramRows(operation)),
+        response ? el("p", { className: "empty", textContent: "200 response" }) : "",
+        response ? el("pre", { textContent: JSON.stringify(response, null, 2) }) : ""
     ])
     return el("details", { className: "op" }, [summary, body])
 }

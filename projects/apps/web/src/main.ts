@@ -1,4 +1,5 @@
 import type { AppType } from "@chaos/api"
+import type { Item } from "@chaos/schema"
 import { hc } from "hono/client"
 
 const client = hc<AppType>(`${window.location.origin}/api`)
@@ -17,7 +18,7 @@ const show = (message: string | null) => {
     error.hidden = message === null
 }
 
-const render = (items: { id: string; name: string; createdAt: string }[]) => {
+const render = (items: Item[]) => {
     list.replaceChildren(
         ...items.map(item => {
             const entry = document.createElement("li")

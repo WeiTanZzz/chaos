@@ -1,7 +1,7 @@
 import { createApp } from "@chaos/capability"
-import { lazyDb } from "@chaos/db"
-import { capabilities } from "@chaos/items"
+import { capabilities } from "./capabilities/index.ts"
 import { config } from "./config.ts"
+import { lazyDb } from "./db/client.ts"
 
 const app = createApp({
     context: { db: lazyDb(config.databasePath) },

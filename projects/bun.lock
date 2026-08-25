@@ -15,8 +15,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@chaos/capability": "workspace:*",
-        "@chaos/db": "workspace:*",
-        "@chaos/items": "workspace:*",
+        "@chaos/schema": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "hono": "^4.13.4",
       },
@@ -29,6 +28,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@chaos/api": "workspace:*",
+        "@chaos/schema": "workspace:*",
         "hono": "^4.13.4",
       },
     },
@@ -42,20 +42,10 @@
         "zod": "^4.4.3",
       },
     },
-    "packages/db": {
-      "name": "@chaos/db",
+    "packages/schema": {
+      "name": "@chaos/schema",
       "version": "0.0.0",
       "dependencies": {
-        "drizzle-orm": "^0.45.2",
-      },
-    },
-    "packages/items": {
-      "name": "@chaos/items",
-      "version": "0.0.0",
-      "dependencies": {
-        "@chaos/capability": "workspace:*",
-        "@chaos/db": "workspace:*",
-        "drizzle-orm": "^0.45.2",
         "zod": "^4.4.3",
       },
     },
@@ -83,9 +73,7 @@
 
     "@chaos/capability": ["@chaos/capability@workspace:packages/capability"],
 
-    "@chaos/db": ["@chaos/db@workspace:packages/db"],
-
-    "@chaos/items": ["@chaos/items@workspace:packages/items"],
+    "@chaos/schema": ["@chaos/schema@workspace:packages/schema"],
 
     "@chaos/web": ["@chaos/web@workspace:apps/web"],
 
