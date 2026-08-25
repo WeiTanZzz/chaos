@@ -31,9 +31,29 @@ export const listItems = capability({
 })
 ```
 
-Add it to `src/capabilities/index.ts` and the HTTP route is live. `mcp` defaults to `false`, so a capability is
-HTTP-only until you deliberately expose it to models. Path params, query string (GET/DELETE) and JSON body
-(POST/PUT/PATCH) all feed the same validated input object.
+Add it to `src/capabilities/index.ts` and the HTTP route is live. Path params, query string (GET/DELETE) and JSON
+body (POST/PUT/PATCH) all feed the same validated input object.
+
+Each surface is opt-in independently, and the type system requires at least one of them:
+
+| Declaration | HTTP | MCP tool |
+| --- | --- | --- |
+| `route` only | yes | no — `mcp` defaults to `false` |
+| `route` + `mcp: true` | yes | yes |
+| `mcp: true`, no `route` | no | yes |
+| neither | does not compile | |
+
+So a model-only tool just drops the route:
+
+```ts
+export const summarize = capability({
+    name: "items_summarize",
+    description: "Only reachable over MCP.",
+    input: { since: z.iso.date() },
+    mcp: true,
+    handler: async ({ since }, { db }) => ...
+})
+```
 
 ## Typed client (Hono RPC)
 

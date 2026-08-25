@@ -22,7 +22,15 @@ const hidden = capability({
     handler: async () => ({ ok: true })
 })
 
-const capabilities = [echo, hidden]
+const toolOnly = capability({
+    name: "tool_only",
+    description: "Reachable as an mcp tool, with no http route.",
+    input: { value: z.number() },
+    mcp: true,
+    handler: async ({ value }) => ({ doubled: value * 2 })
+})
+
+const capabilities = [echo, hidden, toolOnly]
 
 const app = createApp({
     deps: {
@@ -58,7 +66,7 @@ test("only capabilities with mcp: true become tools", async () => {
     expect((await app.request("/hidden")).status).toBe(200)
 
     const listed = await rpc({ jsonrpc: "2.0", id: 1, method: "tools/list" })
-    expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(["echo"])
+    expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(["echo", "tool_only"])
 
     const called = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "echo", arguments: { message: "hi" } } })
     expect(called.result.content[0].text).toBe(JSON.stringify({ message: "hi" }))
@@ -81,4 +89,12 @@ test("dates are typed as strings on the wire", () => {
     type Items = InferResponseType<ReturnType<typeof hc<AppType>>["items"]["$get"]>
     const items: Items = [{ id: "id", name: "name", createdAt: "2026-08-25T00:00:00.000Z" }]
     expect(items).toHaveLength(1)
+})
+
+test("a capability can be an mcp tool with no http surface", async () => {
+    const called = await rpc({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "tool_only", arguments: { value: 21 } } })
+    expect(called.result.content[0].text).toBe(JSON.stringify({ doubled: 42 }))
+
+    expect((await app.request("/tool_only")).status).toBe(404)
+    expect((await app.request("/tool-only")).status).toBe(404)
 })

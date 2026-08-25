@@ -13,9 +13,11 @@ const readInput = async (c: Context, method: string) => {
 
 export const mountHttp = <Caps extends readonly AnyCapability[]>(app: Hono, capabilities: Caps, deps: Deps) => {
     for (const cap of capabilities) {
-        app[cap.route.method](cap.route.path, async c => {
+        const route = cap.route
+        if (route === undefined) continue
+        app[route.method](route.path, async c => {
             try {
-                return c.json((await cap.run(await readInput(c, cap.route.method), deps)) as never)
+                return c.json((await cap.run(await readInput(c, route.method), deps)) as never)
             } catch (error) {
                 if (error instanceof InputError) return c.json({ error: "invalid input", issues: error.issues }, 400)
                 throw error
