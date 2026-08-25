@@ -6,5 +6,5 @@ const surface = (name: string) => {
 export const config = {
     port: Number(process.env.PORT ?? 4400),
     databasePath: () => process.env.DATABASE_PATH ?? "api.sqlite",
-    surfaces: { http: surface("http"), mcp: surface("mcp"), docs: surface("docs") }
+    surfaces: { http: surface("http"), mcp: surface("mcp"), openapi: surface("openapi") }
 }

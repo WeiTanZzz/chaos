@@ -225,14 +225,13 @@ test("surfaces decide what a deployment mounts", async () => {
     })
     expect(listed.status).toBe(200)
 
-    const noDocs = createApp({
+    const noSchema = createApp({
         context: { greeting: "hi" },
         capabilities: [echo],
         info: { name: "test", version: "0.0.0" },
-        surfaces: { docs: false }
+        surfaces: { openapi: false }
     })
 
-    expect((await noDocs.request("/openapi.json")).status).toBe(404)
-    expect((await noDocs.request("/docs")).status).toBe(404)
-    expect((await noDocs.request("/echo?message=there")).status).toBe(200)
+    expect((await noSchema.request("/openapi.json")).status).toBe(404)
+    expect((await noSchema.request("/echo?message=there")).status).toBe(200)
 })

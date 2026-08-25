@@ -48,7 +48,7 @@ second copy of a contract.
 
 ## Surfaces
 
-`createApp({ surfaces: { http, mcp, docs } })` decides what a deployment mounts; `apps/api` reads it from
+`createApp({ surfaces: { http, mcp, openapi } })` decides what a deployment mounts; `apps/api` reads it from
 `SURFACES` (unset means all). `/health` is always mounted. When you add anything that publishes route or tool
 information, respect these flags — `/openapi.json` must not advertise a surface the process did not mount.
 
@@ -60,7 +60,7 @@ deployment. That is deliberate; do not try to make the type conditional.
 `app.use()` on the app `createApp` returns does nothing — the routes are already registered and Hono dispatches
 in order. Pass it to `createApp` instead, choosing the surface it belongs to:
 
-- `middleware.all` — every route, `/mcp`, `/health` and `/docs` included.
+- `middleware.all` — every route, `/mcp`, `/health` and `/openapi.json` included.
 - `middleware.http` — capability routes only. The place for API auth.
 - `middleware.mcp` — the mcp endpoint only. The place for MCP auth, which is usually a different scheme.
 - `route.middleware` — one route, HTTP surface only.
@@ -96,9 +96,8 @@ platform directly.
   demand `better-sqlite3`. Generated migrations in `apps/api/drizzle/` are committed; `*.sqlite` files are not.
 - Do **not** run `biome migrate`. It rewrote the repo-root config, marked the root as a non-root config and
   turned `recommended` into `preset: "none"`, silently disabling every rule.
-- The docs page is a template literal inside `packages/capability/src/docs.ts`. Escapes there are interpreted
-  twice — a stray `\n` becomes a real newline inside browser JS and breaks the whole page. Check the rendered
-  page after editing it, not just the types.
+- The service serves `/openapi.json` and no viewer. Do not add a documentation UI dependency here: every one of
+  them loads its bundle from a CDN. Rendering the document is a separate project's job.
 - Adding a dependency needs a reason. This workspace prefers the runtime's own tools: Bun's workspace runner over
   `concurrently`, a self-contained docs page over a CDN-loaded viewer, zod's built-in JSON Schema over a
   converter library.

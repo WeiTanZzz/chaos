@@ -50,7 +50,7 @@ children. `bun run dev:api` / `bun run dev:web` still run one at a time.
 - `GET /health`
 - `GET|POST /api/v1/items`, `GET /api/v1/items/:id`
 - `POST /mcp` — MCP over Streamable HTTP (only capabilities with `mcp: true`)
-- `GET /openapi.json`, `GET /docs` — generated from the same declarations
+- `GET /openapi.json` — generated from the same declarations
 - `items_summarize` is MCP-only — it has no HTTP route, so the frontend cannot call it and models can
 
 ## Documentation
@@ -61,8 +61,9 @@ on the method), descriptions from the declaration. Capabilities that are also to
 document ends with an `x-mcp` block listing every tool with its JSON Schema — including the MCP-only ones that
 have no path.
 
-`/docs` renders that document: a single self-contained HTML page, no CDN, no external assets, no doc-viewer
-dependency. Point Scalar or Swagger UI at `/openapi.json` if you want more.
+The service serves the document, not a viewer. Point whatever you like at it — Scalar, Swagger UI, Redoc,
+Postman — or render it in a separate project. Every off-the-shelf viewer ships as a CDN-loaded bundle, which is
+not something this service should depend on to describe itself.
 
 ## Declaring a capability
 
@@ -101,16 +102,16 @@ has its own absolute path option (`mcpPath`, `openapiPath`, `docsPath`).
 One build, three deployments. `SURFACES` picks what the process actually mounts:
 
 ```
-SURFACES=http,docs   # plain REST service, /mcp returns 404
-SURFACES=mcp         # mcp server only, no capability routes and no docs
-# unset              # everything (the default)
+SURFACES=http,openapi   # plain REST service, /mcp returns 404
+SURFACES=mcp            # mcp server only, no capability routes and no schema
+# unset                 # everything (the default)
 ```
 
 `/health` is always mounted so probes work in every mode, and `/openapi.json` drops its `x-mcp` block when the
 mcp surface is off rather than documenting an endpoint that 404s. Run the same image twice with different values
 to put the API and the MCP server on separate hosts, scaling and auth of their own.
 
-In code it is `createApp({ surfaces: { http, mcp, docs } })`, all defaulting to true. The returned type still
+In code it is `createApp({ surfaces: { http, mcp, openapi } })`, all defaulting to true. The returned type still
 describes every capability route even when `http` is off — a deployment switch does not change what the code
 declares, so keep the typed client pointed at a deployment that serves HTTP.
 
@@ -125,7 +126,7 @@ createApp({
     capabilities,
     info,
     middleware: {
-        all: [logger()],                  // every route, /mcp, /health and /docs included
+        all: [logger()],                  // every route, /mcp, /health and /openapi.json included
         http: [apiKeyAuth],               // capability routes only, never /mcp
         mcp: [bearerAuth]                 // the mcp endpoint only
     }

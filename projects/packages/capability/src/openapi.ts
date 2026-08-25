@@ -1,3 +1,4 @@
+import type { Hono } from "hono"
 import { z } from "zod"
 import type { AnyCapability, Method } from "./capability.ts"
 import type { ServerInfo } from "./mcp.ts"
@@ -108,4 +109,10 @@ export const toOpenApi = <Ctx>({ capabilities, info, mcpPath, basePath = "", sur
               }
             : {})
     }
+}
+
+export const mountOpenApi = <Ctx>(app: Hono, path: string, options: OpenApiOptions<Ctx>) => {
+    const document = toOpenApi(options)
+    app.get(path, c => c.json(document))
+    return app
 }

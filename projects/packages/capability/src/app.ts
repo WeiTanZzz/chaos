@@ -1,8 +1,8 @@
 import { Hono, type MiddlewareHandler } from "hono"
 import type { AnyCapability } from "./capability.ts"
-import { mountDocs } from "./docs.ts"
 import { mountHttp } from "./http.ts"
 import { mountMcp, type ServerInfo } from "./mcp.ts"
+import { mountOpenApi } from "./openapi.ts"
 
 export type Middleware = {
     /** Everything this app mounts: capability routes, the mcp endpoint, health and the docs. */
@@ -18,8 +18,8 @@ export type Surfaces = {
     http?: boolean
     /** The mcp endpoint. Off means the same build serves a plain http api. */
     mcp?: boolean
-    /** `/openapi.json` and the docs page. */
-    docs?: boolean
+    /** The generated `/openapi.json` document. */
+    openapi?: boolean
 }
 
 export type AppOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], BasePath extends string> = {
@@ -33,7 +33,6 @@ export type AppOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], BasePath
     basePath?: BasePath
     mcpPath?: string
     openapiPath?: string
-    docsPath?: string
 }
 
 export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[], const BasePath extends string = "">({
@@ -44,14 +43,13 @@ export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[],
     middleware = {},
     basePath,
     mcpPath = "/mcp",
-    openapiPath = "/openapi.json",
-    docsPath = "/docs"
+    openapiPath = "/openapi.json"
 }: AppOptions<Ctx, Caps, BasePath>) => {
-    const { http = true, mcp = true, docs = true } = surfaces
+    const { http = true, mcp = true, openapi = true } = surfaces
     const app = new Hono()
     for (const handler of middleware.all ?? []) app.use(handler)
     app.get("/health", c => c.json({ status: "ok" }))
-    if (docs) mountDocs(app, { capabilities, info, mcpPath, openapiPath, docsPath, basePath, surfaces: { http, mcp } })
+    if (openapi) mountOpenApi(app, openapiPath, { capabilities, info, mcpPath, basePath, surfaces: { http, mcp } })
     if (mcp) mountMcp(app, { path: mcpPath, capabilities, context, info, middleware: middleware.mcp })
     return mountHttp(app, { capabilities, context, basePath, middleware: middleware.http, enabled: http })
 }
