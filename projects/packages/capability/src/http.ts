@@ -19,14 +19,16 @@ export type HttpOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefix 
     basePath?: Prefix
     /** Runs before every capability route, ahead of any middleware the route itself declares. */
     middleware?: MiddlewareHandler[]
+    /** When false no route is registered, but the returned type is unchanged. */
+    enabled?: boolean
 }
 
 export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefix extends string = "">(
     app: Hono,
-    { capabilities, context, basePath, middleware = [] }: HttpOptions<Ctx, Caps, Prefix>
+    { capabilities, context, basePath, middleware = [], enabled = true }: HttpOptions<Ctx, Caps, Prefix>
 ) => {
     const prefix = trimSlash(basePath ?? "")
-    for (const cap of capabilities) {
+    for (const cap of enabled ? capabilities : []) {
         const route = cap.route
         if (route === undefined) continue
         const handler = async (c: Context) => {

@@ -7,6 +7,7 @@ const app = createApp({
     context: { db: lazyDb(config.databasePath) },
     capabilities,
     info: { name: "chaos-api", version: "0.0.0" },
+    surfaces: config.surfaces,
     basePath: "/api/v1"
 })
 

@@ -96,6 +96,24 @@ Add it to `apps/api/src/capabilities/index.ts` and the HTTP route is live.
 `/health`, `/mcp`, `/docs` and `/openapi.json` stay at the root: they are not part of the versioned API, and each
 has its own absolute path option (`mcpPath`, `openapiPath`, `docsPath`).
 
+### Surfaces
+
+One build, three deployments. `SURFACES` picks what the process actually mounts:
+
+```
+SURFACES=http,docs   # plain REST service, /mcp returns 404
+SURFACES=mcp         # mcp server only, no capability routes and no docs
+# unset              # everything (the default)
+```
+
+`/health` is always mounted so probes work in every mode, and `/openapi.json` drops its `x-mcp` block when the
+mcp surface is off rather than documenting an endpoint that 404s. Run the same image twice with different values
+to put the API and the MCP server on separate hosts, scaling and auth of their own.
+
+In code it is `createApp({ surfaces: { http, mcp, docs } })`, all defaulting to true. The returned type still
+describes every capability route even when `http` is off — a deployment switch does not change what the code
+declares, so keep the typed client pointed at a deployment that serves HTTP.
+
 ### Middleware
 
 Middleware registered on the returned app does **nothing** — Hono dispatches in registration order and the routes

@@ -62,7 +62,17 @@ const operation = (cap: AnyCapability<never>, method: Method, path: string) => {
     }
 }
 
-export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info: ServerInfo, mcpPath: string, basePath = "") => {
+export type OpenApiOptions<Ctx> = {
+    capabilities: readonly AnyCapability<Ctx>[]
+    info: ServerInfo
+    mcpPath: string
+    basePath?: string
+    /** Only documents what is actually mounted. */
+    surfaces?: { http?: boolean; mcp?: boolean }
+}
+
+export const toOpenApi = <Ctx>({ capabilities, info, mcpPath, basePath = "", surfaces = {} }: OpenApiOptions<Ctx>) => {
+    const { http = true, mcp = true } = surfaces
     const prefix = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath
     const caps: readonly AnyCapability<never>[] = capabilities
     const paths: Record<string, Record<string, unknown>> = {
@@ -70,7 +80,7 @@ export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info
             get: { operationId: "health", summary: "Health check", responses: { "200": { description: "Service is up", content: { "application/json": {} } } } }
         }
     }
-    for (const cap of caps) {
+    for (const cap of http ? caps : []) {
         const route = cap.route
         if (route === undefined) continue
         const path = `${prefix}${toOpenApiPath(route.path)}`
@@ -80,18 +90,22 @@ export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info
         openapi: "3.1.0",
         info: { title: info.name, version: info.version },
         paths,
-        "x-mcp": {
-            endpoint: mcpPath,
-            transport: "streamable-http",
-            tools: caps
-                .filter(cap => cap.mcp)
-                .map(cap => ({
-                    name: cap.name,
-                    title: cap.title ?? cap.name,
-                    description: cap.description,
-                    inputSchema: inputSchema(cap),
-                    route: cap.route === undefined ? null : `${cap.route.method.toUpperCase()} ${prefix}${cap.route.path}`
-                }))
-        }
+        ...(mcp
+            ? {
+                  "x-mcp": {
+                      endpoint: mcpPath,
+                      transport: "streamable-http",
+                      tools: caps
+                          .filter(cap => cap.mcp)
+                          .map(cap => ({
+                              name: cap.name,
+                              title: cap.title ?? cap.name,
+                              description: cap.description,
+                              inputSchema: inputSchema(cap),
+                              route: cap.route === undefined || !http ? null : `${cap.route.method.toUpperCase()} ${prefix}${cap.route.path}`
+                          }))
+                  }
+              }
+            : {})
     }
 }

@@ -13,10 +13,21 @@ export type Middleware = {
     mcp?: MiddlewareHandler[]
 }
 
+export type Surfaces = {
+    /** Capability routes. Off means the same build serves mcp only. */
+    http?: boolean
+    /** The mcp endpoint. Off means the same build serves a plain http api. */
+    mcp?: boolean
+    /** `/openapi.json` and the docs page. */
+    docs?: boolean
+}
+
 export type AppOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], BasePath extends string> = {
     context: Ctx
     capabilities: Caps
     info: ServerInfo
+    /** Which surfaces this deployment serves. All on by default; `/health` is always mounted. */
+    surfaces?: Surfaces
     middleware?: Middleware
     /** Prefix applied to every capability route, e.g. "/api/v1". The paths below are absolute and unaffected. */
     basePath?: BasePath
@@ -29,16 +40,18 @@ export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[],
     context,
     capabilities,
     info,
+    surfaces = {},
     middleware = {},
     basePath,
     mcpPath = "/mcp",
     openapiPath = "/openapi.json",
     docsPath = "/docs"
 }: AppOptions<Ctx, Caps, BasePath>) => {
+    const { http = true, mcp = true, docs = true } = surfaces
     const app = new Hono()
     for (const handler of middleware.all ?? []) app.use(handler)
     app.get("/health", c => c.json({ status: "ok" }))
-    mountDocs(app, { capabilities, info, mcpPath, openapiPath, docsPath, basePath })
-    mountMcp(app, { path: mcpPath, capabilities, context, info, middleware: middleware.mcp })
-    return mountHttp(app, { capabilities, context, basePath, middleware: middleware.http })
+    if (docs) mountDocs(app, { capabilities, info, mcpPath, openapiPath, docsPath, basePath, surfaces: { http, mcp } })
+    if (mcp) mountMcp(app, { path: mcpPath, capabilities, context, info, middleware: middleware.mcp })
+    return mountHttp(app, { capabilities, context, basePath, middleware: middleware.http, enabled: http })
 }

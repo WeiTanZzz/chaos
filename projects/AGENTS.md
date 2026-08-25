@@ -46,6 +46,15 @@ second copy of a contract.
 - Handlers return the wire shape. Convert `Date` to an ISO string in the handler — the declared output schema is
   the contract, not the row type.
 
+## Surfaces
+
+`createApp({ surfaces: { http, mcp, docs } })` decides what a deployment mounts; `apps/api` reads it from
+`SURFACES` (unset means all). `/health` is always mounted. When you add anything that publishes route or tool
+information, respect these flags — `/openapi.json` must not advertise a surface the process did not mount.
+
+The returned type is unchanged by the flags, so a client that type-checks can still 404 against an mcp-only
+deployment. That is deliberate; do not try to make the type conditional.
+
 ## Middleware
 
 `app.use()` on the app `createApp` returns does nothing — the routes are already registered and Hono dispatches

@@ -192,3 +192,47 @@ test("each surface can carry its own middleware", async () => {
     expect((await surfaced.request("/health")).status).toBe(200)
     expect((await surfaced.request("/openapi.json")).status).toBe(200)
 })
+
+test("surfaces decide what a deployment mounts", async () => {
+    const httpOnly = createApp({
+        context: { greeting: "hi" },
+        capabilities: [echo, toolOnly],
+        info: { name: "test", version: "0.0.0" },
+        surfaces: { mcp: false }
+    })
+
+    expect((await httpOnly.request("/echo?message=there")).status).toBe(200)
+    expect((await httpOnly.request("/mcp", { method: "POST" })).status).toBe(404)
+    expect((await httpOnly.request("/health")).status).toBe(200)
+
+    const document = z.object({ paths: z.record(z.string(), z.unknown()) }).parse(await (await httpOnly.request("/openapi.json")).json())
+    expect(document).not.toHaveProperty("x-mcp")
+
+    const mcpOnly = createApp({
+        context: { greeting: "hi" },
+        capabilities: [echo, toolOnly],
+        info: { name: "test", version: "0.0.0" },
+        surfaces: { http: false }
+    })
+
+    expect((await mcpOnly.request("/echo?message=there")).status).toBe(404)
+    expect((await mcpOnly.request("/health")).status).toBe(200)
+
+    const listed = await mcpOnly.request("/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+    })
+    expect(listed.status).toBe(200)
+
+    const noDocs = createApp({
+        context: { greeting: "hi" },
+        capabilities: [echo],
+        info: { name: "test", version: "0.0.0" },
+        surfaces: { docs: false }
+    })
+
+    expect((await noDocs.request("/openapi.json")).status).toBe(404)
+    expect((await noDocs.request("/docs")).status).toBe(404)
+    expect((await noDocs.request("/echo?message=there")).status).toBe(200)
+})
