@@ -90,3 +90,23 @@ test("the rpc client is typed from the same declarations", async () => {
     const echoed: Response = { message: "hi there" }
     expect([request, echoed]).toBeDefined()
 })
+
+test("basePath prefixes every capability route", async () => {
+    const prefixed = createApp({
+        context: { greeting: "hi" },
+        capabilities: [echo],
+        info: { name: "test", version: "0.0.0" },
+        basePath: "/api/v1"
+    })
+
+    expect((await prefixed.request("/api/v1/echo?message=there")).status).toBe(200)
+    expect((await prefixed.request("/echo?message=there")).status).toBe(404)
+    expect((await prefixed.request("/health")).status).toBe(200)
+
+    const client = hc<typeof prefixed>("http://test", { fetch: prefixed.request })
+    const response = await client.api.v1.echo.$get({ query: { message: "there" } })
+    expect(await response.json()).toEqual({ message: "hi there" })
+
+    const document = z.object({ paths: z.record(z.string(), z.unknown()) }).parse(await (await prefixed.request("/openapi.json")).json())
+    expect(Object.keys(document.paths)).toContain("/api/v1/echo")
+})

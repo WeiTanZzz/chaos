@@ -7,9 +7,10 @@
         "packages/*"
     ],
     "scripts": {
-        "dev": "bun run --filter @chaos/api dev",
+        "dev": "bun run --parallel --no-orphans --filter './apps/*' dev",
+        "dev:api": "bun run --filter @chaos/api dev",
         "dev:web": "bun run --filter @chaos/web dev",
-        "start": "bun run --filter @chaos/api start",
+        "start": "bun run --parallel --no-orphans --filter './apps/*' start",
         "format": "biome format --write .",
         "lint": "biome lint .",
         "check": "biome check --write .",

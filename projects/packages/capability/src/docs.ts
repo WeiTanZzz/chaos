@@ -135,10 +135,11 @@ export type DocsOptions<Ctx> = {
     mcpPath: string
     openapiPath: string
     docsPath: string
+    basePath?: string
 }
 
-export const mountDocs = <Ctx>(app: Hono, { capabilities, info, mcpPath, openapiPath, docsPath }: DocsOptions<Ctx>) => {
-    const document = toOpenApi(capabilities, info, mcpPath)
+export const mountDocs = <Ctx>(app: Hono, { capabilities, info, mcpPath, openapiPath, docsPath, basePath = "" }: DocsOptions<Ctx>) => {
+    const document = toOpenApi(capabilities, info, mcpPath, basePath)
     app.get(openapiPath, c => c.json(document))
     app.get(docsPath, c => c.html(page(openapiPath)))
     return app

@@ -68,4 +68,7 @@ const build = (spec: Spec<string, z.ZodRawShape, unknown, unknown> & { route?: R
  * Binds the capability factory to the context every handler receives, so this package stays free of
  * application types while handlers keep a fully typed context.
  */
+// `build` is written against an erased context so every binding can share one implementation; the factory type
+// is what gives callers their typed handler. TypeScript cannot connect the two.
+// biome-ignore lint/nursery/noUnsafeTypeAssertion: one erased implementation backing every typed binding
 export const createCapability = <Ctx>(): CapabilityFactory<Ctx> => build as CapabilityFactory<Ctx>

@@ -4,14 +4,18 @@ import { hc } from "hono/client"
 
 const client = hc<AppType>(`${window.location.origin}/api`)
 
-const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
+const el = <T extends HTMLElement>(selector: string): T => {
+    const node = document.querySelector<T>(selector)
+    if (node === null) throw new Error(`missing element ${selector}`)
+    return node
+}
 
-const form = el<HTMLFormElement>("create")
-const nameInput = el<HTMLInputElement>("name")
-const limitInput = el<HTMLInputElement>("limit")
-const list = el<HTMLUListElement>("items")
-const empty = el<HTMLParagraphElement>("empty")
-const error = el<HTMLParagraphElement>("error")
+const form = el<HTMLFormElement>("#create")
+const nameInput = el<HTMLInputElement>("#name")
+const limitInput = el<HTMLInputElement>("#limit")
+const list = el<HTMLUListElement>("#items")
+const empty = el<HTMLParagraphElement>("#empty")
+const error = el<HTMLParagraphElement>("#error")
 
 const show = (message: string | null) => {
     error.textContent = message ?? ""

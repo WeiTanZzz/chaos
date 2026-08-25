@@ -4,17 +4,30 @@
     "extends": "//",
     "linter": {
         "enabled": true,
-        "domains": { "project": "recommended", "test": "recommended" },
+        "domains": {
+            "project": "recommended",
+            "test": "recommended"
+        },
         "rules": {
             "preset": "recommended",
             "suspicious": {
                 "noExplicitAny": "error",
-                "noConsole": { "level": "error", "options": { "allow": ["error", "warn"] } },
+                "noConsole": {
+                    "level": "error",
+                    "options": {
+                        "allow": ["error", "warn"]
+                    }
+                },
                 "useAwait": "error",
                 "noEmptyBlockStatements": "error"
             },
             "complexity": {
-                "noExcessiveCognitiveComplexity": { "level": "warn", "options": { "maxAllowedComplexity": 12 } },
+                "noExcessiveCognitiveComplexity": {
+                    "level": "warn",
+                    "options": {
+                        "maxAllowedComplexity": 12
+                    }
+                },
                 "useSimplifiedLogicExpression": "error"
             },
             "correctness": {
@@ -35,13 +48,19 @@
                 "useThrowOnlyError": "error",
                 "noNegationElse": "error",
                 "useCollapsedIf": "error",
-                "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } },
+                "useConsistentArrayType": {
+                    "level": "error",
+                    "options": {
+                        "syntax": "shorthand"
+                    }
+                },
                 "noEnum": "error",
                 "noDoneCallback": "error"
             },
             "nursery": {
                 "noFloatingPromises": "error",
-                "noMisusedPromises": "error"
+                "noMisusedPromises": "error",
+                "noUnsafeTypeAssertion": "error"
             },
             "performance": {
                 "noDelete": "error"
@@ -50,6 +69,11 @@
     },
     "assist": {
         "enabled": true,
-        "actions": { "source": { "organizeImports": "on", "useSortedKeys": "off" } }
+        "actions": {
+            "source": {
+                "organizeImports": "on",
+                "useSortedKeys": "off"
+            }
+        }
     }
 }

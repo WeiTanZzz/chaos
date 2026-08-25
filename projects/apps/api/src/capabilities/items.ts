@@ -49,7 +49,11 @@ export const createItem = capability({
     input: createItemInput,
     output: createItemOutput,
     route: { method: "post", path: "/items" },
-    handler: async ({ name }, { db }) => toItem((await db().insert(items).values({ name }).returning())[0] as Row)
+    handler: async ({ name }, { db }) => {
+        const [row] = await db().insert(items).values({ name }).returning()
+        if (row === undefined) throw new Error("insert returned no rows")
+        return toItem(row)
+    }
 })
 
 export const summarizeItems = capability({

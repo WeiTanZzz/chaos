@@ -18,9 +18,9 @@ type InputOf<C extends AnyCapability<never>, M extends Method, P extends string>
 
 type OutputOf<C extends AnyCapability<never>> = JSONParsed<Awaited<ReturnType<C["run"]>>>
 
-type CapabilitySchema<C extends AnyCapability<never>> = C extends { route: Route<infer M, infer P> }
+type CapabilitySchema<C extends AnyCapability<never>, Prefix extends string> = C extends { route: Route<infer M, infer P> }
     ? {
-          [K in P]: {
+          [K in `${Prefix}${P}`]: {
               [K2 in `$${M}`]: {
                   input: AddParam<InputOf<C, M, P>, P>
                   output: OutputOf<C>
@@ -31,5 +31,5 @@ type CapabilitySchema<C extends AnyCapability<never>> = C extends { route: Route
       }
     : never
 
-export type CapabilitiesSchema<Caps extends readonly AnyCapability<never>[]> =
-    UnionToIntersection<CapabilitySchema<Caps[number]>> extends infer S ? (S extends Schema ? S : never) : never
+export type CapabilitiesSchema<Caps extends readonly AnyCapability<never>[], Prefix extends string = ""> =
+    UnionToIntersection<CapabilitySchema<Caps[number], Prefix>> extends infer S ? (S extends Schema ? S : never) : never

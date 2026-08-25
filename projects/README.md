@@ -37,9 +37,13 @@ export const capability = createCapability<Deps>()
 ```
 bun install
 bun run db:migrate        # creates apps/api/api.sqlite
-bun run dev               # service on :4400
-bun run dev:web           # frontend on :4500
+bun run dev               # both apps, prefixed output, one Ctrl-C stops everything
 ```
+
+`dev` is `bun run --parallel --no-orphans --filter './apps/*' dev` — Bun's own workspace runner, no `concurrently`
+and no task orchestrator. `--parallel` is what makes it concurrent (a bare `--filter` runs the matched scripts in
+sequence, so the first watcher blocks the rest) and `--no-orphans` is what makes stopping the parent stop both
+children. `bun run dev:api` / `bun run dev:web` still run one at a time.
 
 - `GET /health`
 - `GET|POST /items`, `GET /items/:id`
@@ -80,7 +84,16 @@ handler's return value and fills in the 200 response schema in `/openapi.json`. 
 the frontend imports exactly the same definitions — `Item` in `apps/web` is `z.infer` of the schema the handler
 is checked against.
 
-Add it to `apps/api/src/capabilities/index.ts` and the HTTP route is live. Path params, query string (GET/DELETE)
+Add it to `apps/api/src/capabilities/index.ts` and the HTTP route is live. `createApp` takes an optional
+`basePath`, so every capability route can sit under a common prefix — the prefix shows up in the routes, in
+`/openapi.json` and in the client types alike:
+
+```ts
+const app = createApp({ context, capabilities, info, basePath: "/api/v1" })
+// GET /api/v1/items, and client.api.v1.items.$get(...) type-checks
+```
+
+`/health` stays at the root, and `mcpPath`, `openapiPath` and `docsPath` are absolute paths of their own. Path params, query string (GET/DELETE)
 and JSON body (POST/PUT/PATCH) all feed the same validated input object.
 
 Each surface is opt-in independently, and the type system requires at least one of them:
@@ -181,6 +194,9 @@ no semicolons, 160 columns, LF) and adds a strict rule set on top:
 - No non-null assertions (`!`), no parameter reassignment, no `enum`, no `delete`, no bare `console`
   (`console.warn` / `console.error` allowed).
 - `noFloatingPromises` and `noMisusedPromises` — an unawaited handler is an error, not a silent bug.
+- `noUnsafeTypeAssertion` — `as` is an error. Two assertions survive, each with a `biome-ignore` naming the
+  reason: they are the type-level bridges (loop-registered routes, one erased factory implementation) that
+  TypeScript cannot infer. Everything else uses annotations, type arguments or a real runtime check.
 - Unused imports, variables and parameters are errors; imports are auto-sorted by the assist action.
 - `project` and `test` lint domains on, so undeclared dependencies and import cycles are caught — including a
   package importing something its own `package.json` does not declare.

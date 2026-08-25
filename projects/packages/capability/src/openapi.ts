@@ -2,8 +2,6 @@ import { z } from "zod"
 import type { AnyCapability, Method } from "./capability.ts"
 import type { ServerInfo } from "./mcp.ts"
 
-type JsonSchema = Record<string, unknown>
-
 const pathParams = (path: string) =>
     path
         .split("/")
@@ -12,7 +10,7 @@ const pathParams = (path: string) =>
 
 const toOpenApiPath = (path: string) => path.replace(/:([^/]+)/g, "{$1}")
 
-const inputSchema = (cap: AnyCapability<never>) => z.toJSONSchema(z.object(cap.input), { io: "input" }) as JsonSchema
+const inputSchema = (cap: AnyCapability<never>) => z.toJSONSchema(z.object(cap.input), { io: "input" })
 
 const jsonResponses = (cap: AnyCapability<never>) => ({
     "200": {
@@ -31,8 +29,8 @@ const jsonResponses = (cap: AnyCapability<never>) => ({
 
 const operation = (cap: AnyCapability<never>, method: Method, path: string) => {
     const schema = inputSchema(cap)
-    const properties = (schema.properties ?? {}) as Record<string, unknown>
-    const required = new Set((schema.required ?? []) as string[])
+    const properties = schema.properties ?? {}
+    const required = new Set(schema.required ?? [])
     const inPath = new Set(pathParams(path))
     const carriesBody = method !== "get" && method !== "delete"
 
@@ -64,8 +62,9 @@ const operation = (cap: AnyCapability<never>, method: Method, path: string) => {
     }
 }
 
-export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info: ServerInfo, mcpPath: string) => {
-    const caps = capabilities as readonly AnyCapability<never>[]
+export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info: ServerInfo, mcpPath: string, basePath = "") => {
+    const prefix = basePath.endsWith("/") ? basePath.slice(0, -1) : basePath
+    const caps: readonly AnyCapability<never>[] = capabilities
     const paths: Record<string, Record<string, unknown>> = {
         "/health": {
             get: { operationId: "health", summary: "Health check", responses: { "200": { description: "Service is up", content: { "application/json": {} } } } }
@@ -74,7 +73,7 @@ export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info
     for (const cap of caps) {
         const route = cap.route
         if (route === undefined) continue
-        const path = toOpenApiPath(route.path)
+        const path = `${prefix}${toOpenApiPath(route.path)}`
         paths[path] = { ...paths[path], [route.method]: operation(cap, route.method, route.path) }
     }
     return {
@@ -91,7 +90,7 @@ export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info
                     title: cap.title ?? cap.name,
                     description: cap.description,
                     inputSchema: inputSchema(cap),
-                    route: cap.route === undefined ? null : `${cap.route.method.toUpperCase()} ${cap.route.path}`
+                    route: cap.route === undefined ? null : `${cap.route.method.toUpperCase()} ${prefix}${cap.route.path}`
                 }))
         }
     }
