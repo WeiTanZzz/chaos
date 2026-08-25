@@ -1,0 +1,55 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
+    "root": false,
+    "extends": "//",
+    "linter": {
+        "enabled": true,
+        "domains": { "project": "recommended", "test": "recommended" },
+        "rules": {
+            "preset": "recommended",
+            "suspicious": {
+                "noExplicitAny": "error",
+                "noConsole": { "level": "error", "options": { "allow": ["error", "warn"] } },
+                "useAwait": "error",
+                "noEmptyBlockStatements": "error"
+            },
+            "complexity": {
+                "noExcessiveCognitiveComplexity": { "level": "warn", "options": { "maxAllowedComplexity": 12 } },
+                "useSimplifiedLogicExpression": "error"
+            },
+            "correctness": {
+                "noUnusedImports": "error",
+                "noUnusedVariables": "error",
+                "noUnusedFunctionParameters": "error",
+                "noUndeclaredDependencies": "error"
+            },
+            "style": {
+                "noNonNullAssertion": "error",
+                "noParameterAssign": "error",
+                "useConst": "error",
+                "useImportType": "error",
+                "useExportType": "error",
+                "useAsConstAssertion": "error",
+                "useShorthandFunctionType": "error",
+                "useThrowNewError": "error",
+                "useThrowOnlyError": "error",
+                "noNegationElse": "error",
+                "useCollapsedIf": "error",
+                "useConsistentArrayType": { "level": "error", "options": { "syntax": "shorthand" } },
+                "noEnum": "error",
+                "noDoneCallback": "error"
+            },
+            "nursery": {
+                "noFloatingPromises": "error",
+                "noMisusedPromises": "error"
+            },
+            "performance": {
+                "noDelete": "error"
+            }
+        }
+    },
+    "assist": {
+        "enabled": true,
+        "actions": { "source": { "organizeImports": "on", "useSortedKeys": "off" } }
+    }
+}

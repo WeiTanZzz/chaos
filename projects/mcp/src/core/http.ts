@@ -1,0 +1,24 @@
+import type { Context, Hono } from "hono"
+import { type Capability, InputError } from "./capability.ts"
+import type { Deps } from "./deps.ts"
+
+const readInput = async (c: Context, method: string) => {
+    const params = c.req.param() as Record<string, unknown>
+    if (method === "get" || method === "delete") return { ...c.req.query(), ...params }
+    const body = await c.req.json().catch(() => ({}))
+    return { ...(body as Record<string, unknown>), ...params }
+}
+
+export const mountHttp = (app: Hono, capabilities: readonly Capability[], deps: Deps) => {
+    for (const cap of capabilities) {
+        app[cap.route.method](cap.route.path, async c => {
+            try {
+                return c.json((await cap.run(await readInput(c, cap.route.method), deps)) as never)
+            } catch (error) {
+                if (error instanceof InputError) return c.json({ error: "invalid input", issues: error.issues }, 400)
+                throw error
+            }
+        })
+    }
+    return app
+}
