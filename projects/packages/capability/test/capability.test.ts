@@ -110,3 +110,54 @@ test("basePath prefixes every capability route", async () => {
     const document = z.object({ paths: z.record(z.string(), z.unknown()) }).parse(await (await prefixed.request("/openapi.json")).json())
     expect(Object.keys(document.paths)).toContain("/api/v1/echo")
 })
+
+test("app middleware wraps every surface, route middleware only its own route", async () => {
+    const stamped = createApp({
+        context: { greeting: "hi" },
+        capabilities: [
+            capability({
+                name: "guarded",
+                description: "Route middleware can reject before the handler runs.",
+                input: {},
+                route: {
+                    method: "get",
+                    path: "/guarded",
+                    middleware: [async (c, next) => (c.req.header("x-key") === "secret" ? await next() : c.json({ error: "unauthorized" }, 401))]
+                },
+                mcp: true,
+                handler: async () => ({ ok: true })
+            }),
+            echo
+        ],
+        info: { name: "test", version: "0.0.0" }
+    })
+
+    expect((await stamped.request("/guarded")).status).toBe(401)
+    expect((await stamped.request("/guarded", { headers: { "x-key": "secret" } })).status).toBe(200)
+    expect((await stamped.request("/echo?message=there")).status).toBe(200)
+})
+
+test("app middleware also covers the mcp endpoint", async () => {
+    const seen: string[] = []
+    const traced = createApp({
+        context: { greeting: "hi" },
+        capabilities: [echo],
+        info: { name: "test", version: "0.0.0" },
+        middleware: [
+            async (c, next) => {
+                seen.push(c.req.path)
+                await next()
+            }
+        ]
+    })
+
+    await traced.request("/echo?message=there")
+    await traced.request("/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+    })
+    await traced.request("/health")
+
+    expect(seen).toEqual(["/echo", "/mcp", "/health"])
+})

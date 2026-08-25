@@ -2,7 +2,7 @@ import type { AppType } from "@chaos/api"
 import type { Item } from "@chaos/schema"
 import { hc } from "hono/client"
 
-const client = hc<AppType>(`${window.location.origin}/api`)
+const itemsApi = hc<AppType>(window.location.origin).api.v1.items
 
 const el = <T extends HTMLElement>(selector: string): T => {
     const node = document.querySelector<T>(selector)
@@ -43,7 +43,7 @@ const render = (items: Item[]) => {
 }
 
 const refresh = async () => {
-    const response = await client.items.$get({ query: { limit: limitInput.value } })
+    const response = await itemsApi.$get({ query: { limit: limitInput.value } })
     if (!response.ok) return show(`list failed: ${response.status}`)
     show(null)
     render(await response.json())
@@ -51,7 +51,7 @@ const refresh = async () => {
 
 form.addEventListener("submit", async event => {
     event.preventDefault()
-    const response = await client.items.$post({ json: { name: nameInput.value } })
+    const response = await itemsApi.$post({ json: { name: nameInput.value } })
     if (!response.ok) return show(`create failed: ${response.status}`)
     nameInput.value = ""
     await refresh()

@@ -1,3 +1,4 @@
+import type { MiddlewareHandler } from "hono"
 import { z } from "zod"
 
 export type Method = "get" | "post" | "put" | "patch" | "delete"
@@ -5,6 +6,8 @@ export type Method = "get" | "post" | "put" | "patch" | "delete"
 export type Route<M extends Method = Method, P extends string = string> = {
     method: M
     path: P
+    /** Runs before the handler on this route only. HTTP surface only — an MCP tool call never passes through it. */
+    middleware?: MiddlewareHandler[]
 }
 
 type Spec<N extends string, S extends z.ZodRawShape, O, Ctx> = {

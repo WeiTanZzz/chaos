@@ -1,4 +1,5 @@
 import type { Context, Hono } from "hono"
+import { every } from "hono/combine"
 import type { BlankEnv } from "hono/types"
 import { type AnyCapability, InputError } from "./capability.ts"
 import type { CapabilitiesSchema } from "./schema.ts"
@@ -22,7 +23,7 @@ export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefi
     for (const cap of capabilities) {
         const route = cap.route
         if (route === undefined) continue
-        app[route.method](`${prefix}${route.path}`, async c => {
+        const handler = async (c: Context) => {
             try {
                 const result = await cap.run(await readInput(c, route.method), ctx)
                 return c.body(JSON.stringify(result), 200, { "content-type": "application/json" })
@@ -30,7 +31,11 @@ export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefi
                 if (error instanceof InputError) return c.json({ error: "invalid input", issues: error.issues }, 400)
                 throw error
             }
-        })
+        }
+        const path = `${prefix}${route.path}`
+        const middleware = route.middleware ?? []
+        if (middleware.length === 0) app[route.method](path, handler)
+        else app[route.method](path, every(...middleware), handler)
     }
     // The routes were registered in a loop, so Hono cannot infer them: CapabilitiesSchema derives the same
     // routes from the declarations instead. This is the single point where that derivation is asserted.

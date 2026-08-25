@@ -48,7 +48,7 @@ sequence, so the first watcher blocks the rest) and `--no-orphans` is what makes
 children. `bun run dev:api` / `bun run dev:web` still run one at a time.
 
 - `GET /health`
-- `GET|POST /items`, `GET /items/:id`
+- `GET|POST /api/v1/items`, `GET /api/v1/items/:id`
 - `POST /mcp` — MCP over Streamable HTTP (only capabilities with `mcp: true`)
 - `GET /openapi.json`, `GET /docs` — generated from the same declarations
 - `items_summarize` is MCP-only — it has no HTTP route, so the frontend cannot call it and models can
@@ -86,16 +86,43 @@ handler's return value and fills in the 200 response schema in `/openapi.json`. 
 the frontend imports exactly the same definitions — `Item` in `apps/web` is `z.infer` of the schema the handler
 is checked against.
 
-Add it to `apps/api/src/capabilities/index.ts` and the HTTP route is live. `createApp` takes an optional
-`basePath`, so every capability route can sit under a common prefix — the prefix shows up in the routes, in
-`/openapi.json` and in the client types alike:
+Add it to `apps/api/src/capabilities/index.ts` and the HTTP route is live.
+
+### Base path
+
+`createApp` takes an optional `basePath`, and this app sets it to `/api/v1`. The prefix shows up in the routes, in
+`/openapi.json` and in the client types alike — `client.api.v1.items.$get(...)` is what type-checks.
+
+`/health`, `/mcp`, `/docs` and `/openapi.json` stay at the root: they are not part of the versioned API, and each
+has its own absolute path option (`mcpPath`, `openapiPath`, `docsPath`).
+
+### Middleware
+
+Middleware registered on the returned app does **nothing** — Hono dispatches in registration order and the routes
+are already mounted. Pass it in instead:
 
 ```ts
-const app = createApp({ context, capabilities, info, basePath: "/api/v1" })
-// GET /api/v1/items, and client.api.v1.items.$get(...) type-checks
+createApp({
+    context,
+    capabilities,
+    info,
+    middleware: [cors(), logger()]        // runs before every route, /mcp and /docs included
+})
 ```
 
-`/health` stays at the root, and `mcpPath`, `openapiPath` and `docsPath` are absolute paths of their own. Path params, query string (GET/DELETE)
+For one route, put it on the route descriptor, which is also where its HTTP-only nature is visible:
+
+```ts
+route: {
+    method: "post",
+    path: "/items",
+    middleware: [requireApiKey]           // http surface only
+}
+```
+
+An MCP `tools/call` never passes through route middleware — it arrives at `/mcp`, not at the capability's path.
+Anything that must hold for both surfaces belongs in app-level `middleware` or in the context the handler
+receives, never in route middleware. Path params, query string (GET/DELETE)
 and JSON body (POST/PUT/PATCH) all feed the same validated input object.
 
 Each surface is opt-in independently, and the type system requires at least one of them:
@@ -119,13 +146,13 @@ Drizzle, no MCP SDK in the client bundle.
 import { hc } from "hono/client"
 import type { AppType } from "@chaos/api"
 
-const client = hc<AppType>("http://localhost:4400")
+const items = hc<AppType>("http://localhost:4400").api.v1.items
 
-const response = await client.items.$get({ query: { limit: "5" } })
-const items = await response.json()          // { id: string; name: string; createdAt: string }[]
+const response = await items.$get({ query: { limit: "5" } })
+const rows = await response.json()           // { id: string; name: string; createdAt: string }[]
 
-await client.items[":id"].$get({ param: { id } })
-await client.items.$post({ json: { name: "hello" } })
+await items[":id"].$get({ param: { id } })
+await items.$post({ json: { name: "hello" } })
 ```
 
 Unknown routes, unknown query keys and wrong body types all fail to compile. `Date` is typed as `string` because

@@ -46,6 +46,13 @@ second copy of a contract.
 - Handlers return the wire shape. Convert `Date` to an ISO string in the handler — the declared output schema is
   the contract, not the row type.
 
+## Middleware
+
+`app.use()` on the app `createApp` returns does nothing — the routes are already registered and Hono dispatches
+in order. Pass `middleware: [...]` to `createApp` for everything, or `route.middleware` for one route. Route
+middleware is HTTP-only: an MCP tool call arrives at `/mcp` and never passes through it, so anything that must
+hold for both surfaces goes in app-level middleware or in the handler's context.
+
 ## TypeScript
 
 - **No `any`.** `noExplicitAny` is an error and `strict` is on.
