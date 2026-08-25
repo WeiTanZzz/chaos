@@ -49,9 +49,15 @@ second copy of a contract.
 ## Middleware
 
 `app.use()` on the app `createApp` returns does nothing — the routes are already registered and Hono dispatches
-in order. Pass `middleware: [...]` to `createApp` for everything, or `route.middleware` for one route. Route
-middleware is HTTP-only: an MCP tool call arrives at `/mcp` and never passes through it, so anything that must
-hold for both surfaces goes in app-level middleware or in the handler's context.
+in order. Pass it to `createApp` instead, choosing the surface it belongs to:
+
+- `middleware.all` — every route, `/mcp`, `/health` and `/docs` included.
+- `middleware.http` — capability routes only. The place for API auth.
+- `middleware.mcp` — the mcp endpoint only. The place for MCP auth, which is usually a different scheme.
+- `route.middleware` — one route, HTTP surface only.
+
+They run in that order. An MCP tool call arrives at `/mcp` and never passes through `http` or route middleware,
+so a guard that must hold for both surfaces goes in `all` or in the handler's context — never in `http` alone.
 
 ## TypeScript
 

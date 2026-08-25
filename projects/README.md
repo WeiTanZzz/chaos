@@ -99,30 +99,36 @@ has its own absolute path option (`mcpPath`, `openapiPath`, `docsPath`).
 ### Middleware
 
 Middleware registered on the returned app does **nothing** — Hono dispatches in registration order and the routes
-are already mounted. Pass it in instead:
+are already mounted. Pass it in instead, per surface:
 
 ```ts
 createApp({
     context,
     capabilities,
     info,
-    middleware: [cors(), logger()]        // runs before every route, /mcp and /docs included
+    middleware: {
+        all: [logger()],                  // every route, /mcp, /health and /docs included
+        http: [apiKeyAuth],               // capability routes only, never /mcp
+        mcp: [bearerAuth]                 // the mcp endpoint only
+    }
 })
 ```
 
-For one route, put it on the route descriptor, which is also where its HTTP-only nature is visible:
+The two surfaces authenticate differently in practice — a browser session or an API key for HTTP, a bearer token
+from the MCP client — so they get separate slots. `all` runs first, then the surface slot, then any middleware
+the route itself declares:
 
 ```ts
 route: {
     method: "post",
     path: "/items",
-    middleware: [requireApiKey]           // http surface only
+    middleware: [requireAdmin]            // this route only, http surface only
 }
 ```
 
-An MCP `tools/call` never passes through route middleware — it arrives at `/mcp`, not at the capability's path.
-Anything that must hold for both surfaces belongs in app-level `middleware` or in the context the handler
-receives, never in route middleware. Path params, query string (GET/DELETE)
+An MCP `tools/call` never passes through `http` or route middleware — it arrives at `/mcp`, not at the
+capability's path. Anything that must hold for both surfaces goes in `all`, or in the context the handler
+receives. Path params, query string (GET/DELETE)
 and JSON body (POST/PUT/PATCH) all feed the same validated input object.
 
 Each surface is opt-in independently, and the type system requires at least one of them:

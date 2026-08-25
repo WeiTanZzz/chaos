@@ -137,18 +137,20 @@ test("app middleware wraps every surface, route middleware only its own route", 
     expect((await stamped.request("/echo?message=there")).status).toBe(200)
 })
 
-test("app middleware also covers the mcp endpoint", async () => {
+test("middleware.all also covers the mcp endpoint", async () => {
     const seen: string[] = []
     const traced = createApp({
         context: { greeting: "hi" },
         capabilities: [echo],
         info: { name: "test", version: "0.0.0" },
-        middleware: [
-            async (c, next) => {
-                seen.push(c.req.path)
-                await next()
-            }
-        ]
+        middleware: {
+            all: [
+                async (c, next) => {
+                    seen.push(c.req.path)
+                    await next()
+                }
+            ]
+        }
     })
 
     await traced.request("/echo?message=there")
@@ -160,4 +162,33 @@ test("app middleware also covers the mcp endpoint", async () => {
     await traced.request("/health")
 
     expect(seen).toEqual(["/echo", "/mcp", "/health"])
+})
+
+test("each surface can carry its own middleware", async () => {
+    const surfaced = createApp({
+        context: { greeting: "hi" },
+        capabilities: [echo],
+        info: { name: "test", version: "0.0.0" },
+        middleware: {
+            http: [async (c, next) => (c.req.header("x-api-key") === "http-key" ? await next() : c.json({ error: "unauthorized" }, 401))],
+            mcp: [async (c, next) => (c.req.header("authorization") === "Bearer mcp-token" ? await next() : c.json({ error: "unauthorized" }, 401))]
+        }
+    })
+
+    const callMcp = (headers: Record<string, string>) =>
+        surfaced.request("/mcp", {
+            method: "POST",
+            headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...headers },
+            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+        })
+
+    // The http key opens the route and does nothing for mcp; the mcp token is the other way around.
+    expect((await surfaced.request("/echo?message=there", { headers: { "x-api-key": "http-key" } })).status).toBe(200)
+    expect((await surfaced.request("/echo?message=there", { headers: { authorization: "Bearer mcp-token" } })).status).toBe(401)
+    expect((await callMcp({ authorization: "Bearer mcp-token" })).status).toBe(200)
+    expect((await callMcp({ "x-api-key": "http-key" })).status).toBe(401)
+
+    // Neither guard touches health or the docs.
+    expect((await surfaced.request("/health")).status).toBe(200)
+    expect((await surfaced.request("/openapi.json")).status).toBe(200)
 })
