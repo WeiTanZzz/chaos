@@ -1,0 +1,33 @@
+# OS / editors
+.DS_Store
+.idea/
+.history/
+*.iml
+
+# scratch
+tmp/
+
+# node / bun
+node_modules/
+
+# gradle / kotlin
+.gradle/
+build/
+out/
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
+# secrets / local env
+.env
+.env.*
+*.local
+
+# logs
+*.log
+
+# experimental
+experimental/
