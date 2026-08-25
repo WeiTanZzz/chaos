@@ -4,6 +4,8 @@ Bun workspace. Every capability is declared once and served as an HTTP route, pl
 with `mcp: true`. No build step — Bun runs the TypeScript sources directly and `workspace:*` deps resolve to the
 local folders.
 
+Agents editing this workspace: read [AGENTS.md](AGENTS.md) first.
+
 ## Layout
 
 ```
