@@ -3,30 +3,38 @@ import type { Deps } from "./deps.ts"
 
 export type Method = "get" | "post" | "put" | "patch" | "delete"
 
-export type Route = {
-    method: Method
-    path: string
+export type Route<M extends Method = Method, P extends string = string> = {
+    method: M
+    path: P
 }
 
-type Spec<S extends z.ZodRawShape, O> = {
-    name: string
+type Spec<N extends string, M extends Method, P extends string, S extends z.ZodRawShape, O> = {
+    name: N
     title?: string
     description: string
     input: S
-    route: Route
+    route: Route<M, P>
     mcp?: boolean
     handler: (input: z.infer<z.ZodObject<S>>, deps: Deps) => Promise<O>
 }
 
-export type Capability = {
-    name: string
+export type Capability<
+    N extends string = string,
+    M extends Method = Method,
+    P extends string = string,
+    S extends z.ZodRawShape = z.ZodRawShape,
+    O = unknown
+> = {
+    name: N
     title?: string
     description: string
-    input: z.ZodRawShape
-    route: Route
+    input: S
+    route: Route<M, P>
     mcp: boolean
-    run: (raw: unknown, deps: Deps) => Promise<unknown>
+    run: (raw: unknown, deps: Deps) => Promise<O>
 }
+
+export type AnyCapability = Capability
 
 export class InputError extends Error {
     constructor(readonly issues: z.core.$ZodIssue[]) {
@@ -34,7 +42,9 @@ export class InputError extends Error {
     }
 }
 
-export const capability = <S extends z.ZodRawShape, O>(spec: Spec<S, O>): Capability => ({
+export const capability = <N extends string, M extends Method, P extends string, S extends z.ZodRawShape, O>(
+    spec: Spec<N, M, P, S, O>
+): Capability<N, M, P, S, O> => ({
     name: spec.name,
     title: spec.title,
     description: spec.description,

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
+import { hc, type InferRequestType, type InferResponseType } from "hono/client"
 import { z } from "zod"
-import { createApp } from "../src/app.ts"
+import { type AppType, createApp } from "../src/app.ts"
 import { capability } from "../src/core/capability.ts"
 import type { Db } from "../src/db/client.ts"
 
@@ -21,13 +22,15 @@ const hidden = capability({
     handler: async () => ({ ok: true })
 })
 
+const capabilities = [echo, hidden]
+
 const app = createApp({
     deps: {
         db: () => {
             throw new Error("db not used in this test")
         }
     } as { db: () => Db },
-    capabilities: [echo, hidden]
+    capabilities
 })
 
 const rpc = async (body: unknown) => {
@@ -59,4 +62,23 @@ test("only capabilities with mcp: true become tools", async () => {
 
     const called = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "echo", arguments: { message: "hi" } } })
     expect(called.result.content[0].text).toBe(JSON.stringify({ message: "hi" }))
+})
+
+test("the rpc client is typed from the same declarations", async () => {
+    const client = hc<typeof app>("http://test", { fetch: app.request })
+
+    const response = await client.echo.$get({ query: { message: "hi" } })
+    expect(await response.json()).toEqual({ message: "hi" })
+
+    type Request = InferRequestType<typeof client.echo.$get>
+    type Response = InferResponseType<typeof client.echo.$get>
+    const request: Request = { query: { message: "hi" } }
+    const echoed: Response = { message: "hi" }
+    expect([request, echoed]).toBeDefined()
+})
+
+test("dates are typed as strings on the wire", () => {
+    type Items = InferResponseType<ReturnType<typeof hc<AppType>>["items"]["$get"]>
+    const items: Items = [{ id: "id", name: "name", createdAt: "2026-08-25T00:00:00.000Z" }]
+    expect(items).toHaveLength(1)
 })

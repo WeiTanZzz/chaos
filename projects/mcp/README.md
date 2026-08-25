@@ -35,6 +35,31 @@ Add it to `src/capabilities/index.ts` and the HTTP route is live. `mcp` defaults
 HTTP-only until you deliberately expose it to models. Path params, query string (GET/DELETE) and JSON body
 (POST/PUT/PATCH) all feed the same validated input object.
 
+## Typed client (Hono RPC)
+
+The same declarations also produce the client types. `createApp` carries the capability tuple through to the
+returned `Hono` type, so `hc` gets full route, input and output typing from a **type-only** import — no server
+code, no Drizzle, no MCP SDK in the client bundle.
+
+```ts
+import { hc } from "hono/client"
+import type { AppType } from "../mcp/src/app.ts"
+
+const client = hc<AppType>("http://localhost:4400")
+
+const response = await client.items.$get({ query: { limit: "5" } })
+const items = await response.json()          // { id: string; name: string; createdAt: string }[]
+
+await client.items[":id"].$get({ param: { id } })
+await client.items.$post({ json: { name: "hello" } })
+```
+
+Unknown routes, unknown query keys and wrong body types all fail to compile. `Date` is typed as `string` because
+`JSONParsed` models what actually crosses the wire.
+
+Caveat: the declared output is the success body. Validation failures return `400` with `{ error, issues }`, so
+check `response.ok` before trusting the parsed body.
+
 ## Portability
 
 | Layer | Choice | Why it travels |

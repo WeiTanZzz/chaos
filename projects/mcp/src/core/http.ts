@@ -1,6 +1,8 @@
 import type { Context, Hono } from "hono"
-import { type Capability, InputError } from "./capability.ts"
+import type { BlankEnv } from "hono/types"
+import { type AnyCapability, InputError } from "./capability.ts"
 import type { Deps } from "./deps.ts"
+import type { CapabilitiesSchema } from "./schema.ts"
 
 const readInput = async (c: Context, method: string) => {
     const params = c.req.param() as Record<string, unknown>
@@ -9,7 +11,7 @@ const readInput = async (c: Context, method: string) => {
     return { ...(body as Record<string, unknown>), ...params }
 }
 
-export const mountHttp = (app: Hono, capabilities: readonly Capability[], deps: Deps) => {
+export const mountHttp = <Caps extends readonly AnyCapability[]>(app: Hono, capabilities: Caps, deps: Deps) => {
     for (const cap of capabilities) {
         app[cap.route.method](cap.route.path, async c => {
             try {
@@ -20,5 +22,5 @@ export const mountHttp = (app: Hono, capabilities: readonly Capability[], deps: 
             }
         })
     }
-    return app
+    return app as unknown as Hono<BlankEnv, CapabilitiesSchema<Caps>>
 }
