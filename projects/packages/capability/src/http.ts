@@ -1,7 +1,6 @@
 import type { Context, Hono } from "hono"
 import type { BlankEnv } from "hono/types"
 import { type AnyCapability, InputError } from "./capability.ts"
-import type { Deps } from "./deps.ts"
 import type { CapabilitiesSchema } from "./schema.ts"
 
 const readInput = async (c: Context, method: string) => {
@@ -11,13 +10,13 @@ const readInput = async (c: Context, method: string) => {
     return { ...(body as Record<string, unknown>), ...params }
 }
 
-export const mountHttp = <Caps extends readonly AnyCapability[]>(app: Hono, capabilities: Caps, deps: Deps) => {
+export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[]>(app: Hono, capabilities: Caps, ctx: Ctx) => {
     for (const cap of capabilities) {
         const route = cap.route
         if (route === undefined) continue
         app[route.method](route.path, async c => {
             try {
-                return c.json((await cap.run(await readInput(c, route.method), deps)) as never)
+                return c.json((await cap.run(await readInput(c, route.method), ctx)) as never)
             } catch (error) {
                 if (error instanceof InputError) return c.json({ error: "invalid input", issues: error.issues }, 400)
                 throw error

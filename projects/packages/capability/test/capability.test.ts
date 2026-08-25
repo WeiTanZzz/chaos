@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test"
 import { hc, type InferRequestType, type InferResponseType } from "hono/client"
 import { z } from "zod"
-import { type AppType, createApp } from "../src/app.ts"
-import { capability } from "../src/core/capability.ts"
-import type { Db } from "../src/db/client.ts"
+import { createApp, createCapability } from "../src/index.ts"
+
+type Ctx = { greeting: string }
+
+const capability = createCapability<Ctx>()
 
 const echo = capability({
     name: "echo",
@@ -11,7 +13,7 @@ const echo = capability({
     input: { message: z.string().min(1) },
     route: { method: "get", path: "/echo" },
     mcp: true,
-    handler: async ({ message }) => ({ message })
+    handler: async ({ message }, { greeting }) => ({ message: `${greeting} ${message}` })
 })
 
 const hidden = capability({
@@ -30,15 +32,10 @@ const toolOnly = capability({
     handler: async ({ value }) => ({ doubled: value * 2 })
 })
 
-const capabilities = [echo, hidden, toolOnly]
-
 const app = createApp({
-    deps: {
-        db: () => {
-            throw new Error("db not used in this test")
-        }
-    } as { db: () => Db },
-    capabilities
+    context: { greeting: "hi" },
+    capabilities: [echo, hidden, toolOnly],
+    info: { name: "test", version: "0.0.0" }
 })
 
 const rpc = async (body: unknown) => {
@@ -52,9 +49,9 @@ const rpc = async (body: unknown) => {
 }
 
 test("one declaration serves the http route", async () => {
-    const response = await app.request("/echo?message=hi")
+    const response = await app.request("/echo?message=there")
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ message: "hi" })
+    expect(await response.json()).toEqual({ message: "hi there" })
 })
 
 test("http rejects invalid input", async () => {
@@ -62,33 +59,16 @@ test("http rejects invalid input", async () => {
     expect(response.status).toBe(400)
 })
 
+test("the same declaration is exposed as an mcp tool", async () => {
+    const called = await rpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "echo", arguments: { message: "there" } } })
+    expect(called.result.content[0].text).toBe(JSON.stringify({ message: "hi there" }))
+})
+
 test("only capabilities with mcp: true become tools", async () => {
     expect((await app.request("/hidden")).status).toBe(200)
 
-    const listed = await rpc({ jsonrpc: "2.0", id: 1, method: "tools/list" })
+    const listed = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" })
     expect(listed.result.tools.map((tool: { name: string }) => tool.name)).toEqual(["echo", "tool_only"])
-
-    const called = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "echo", arguments: { message: "hi" } } })
-    expect(called.result.content[0].text).toBe(JSON.stringify({ message: "hi" }))
-})
-
-test("the rpc client is typed from the same declarations", async () => {
-    const client = hc<typeof app>("http://test", { fetch: app.request })
-
-    const response = await client.echo.$get({ query: { message: "hi" } })
-    expect(await response.json()).toEqual({ message: "hi" })
-
-    type Request = InferRequestType<typeof client.echo.$get>
-    type Response = InferResponseType<typeof client.echo.$get>
-    const request: Request = { query: { message: "hi" } }
-    const echoed: Response = { message: "hi" }
-    expect([request, echoed]).toBeDefined()
-})
-
-test("dates are typed as strings on the wire", () => {
-    type Items = InferResponseType<ReturnType<typeof hc<AppType>>["items"]["$get"]>
-    const items: Items = [{ id: "id", name: "name", createdAt: "2026-08-25T00:00:00.000Z" }]
-    expect(items).toHaveLength(1)
 })
 
 test("a capability can be an mcp tool with no http surface", async () => {
@@ -96,5 +76,17 @@ test("a capability can be an mcp tool with no http surface", async () => {
     expect(called.result.content[0].text).toBe(JSON.stringify({ doubled: 42 }))
 
     expect((await app.request("/tool_only")).status).toBe(404)
-    expect((await app.request("/tool-only")).status).toBe(404)
+})
+
+test("the rpc client is typed from the same declarations", async () => {
+    const client = hc<typeof app>("http://test", { fetch: app.request })
+
+    const response = await client.echo.$get({ query: { message: "there" } })
+    expect(await response.json()).toEqual({ message: "hi there" })
+
+    type Request = InferRequestType<typeof client.echo.$get>
+    type Response = InferResponseType<typeof client.echo.$get>
+    const request: Request = { query: { message: "there" } }
+    const echoed: Response = { message: "hi there" }
+    expect([request, echoed]).toBeDefined()
 })

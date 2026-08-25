@@ -1,0 +1,15 @@
+{
+    "name": "@chaos/capability",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "dependencies": {
+        "@hono/mcp": "^0.3.2",
+        "@modelcontextprotocol/sdk": "^1.30.0",
+        "hono": "^4.13.4",
+        "zod": "^4.4.3"
+    }
+}

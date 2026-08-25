@@ -14,5 +14,5 @@
         "noFallthroughCasesInSwitch": true,
         "skipLibCheck": true
     },
-    "include": ["src/**/*.ts", "test/**/*.ts", "drizzle.config.ts"]
+    "include": ["apps/*/src/**/*.ts", "apps/*/test/**/*.ts", "apps/*/drizzle.config.ts", "packages/*/src/**/*.ts", "packages/*/test/**/*.ts"]
 }

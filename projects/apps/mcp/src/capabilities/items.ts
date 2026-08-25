@@ -1,6 +1,6 @@
 import { count, desc, eq, gte, max, min } from "drizzle-orm"
 import { z } from "zod"
-import { capability } from "../core/capability.ts"
+import { capability } from "../context.ts"
 import { items } from "../db/schema.ts"
 
 export const listItems = capability({
