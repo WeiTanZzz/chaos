@@ -1,3 +1,3 @@
-import { createItem, getItem, listItems } from "./items.ts"
+import { createItem, getItem, listItems, summarizeItems } from "./items.ts"
 
-export const capabilities = [listItems, getItem, createItem]
+export const capabilities = [listItems, getItem, createItem, summarizeItems]

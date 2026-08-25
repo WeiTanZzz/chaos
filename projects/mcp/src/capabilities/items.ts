@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm"
+import { count, desc, eq, gte, max, min } from "drizzle-orm"
 import { z } from "zod"
 import { capability } from "../core/capability.ts"
 import { items } from "../db/schema.ts"
@@ -30,4 +30,19 @@ export const getItem = capability({
     route: { method: "get", path: "/items/:id" },
     mcp: true,
     handler: async ({ id }, { db }) => (await db().select().from(items).where(eq(items.id, id)))[0] ?? null
+})
+
+export const summarizeItems = capability({
+    name: "items_summarize",
+    title: "Summarize items",
+    description: "Count items and report when the first and last one were created, optionally limited to those created on or after a date (YYYY-MM-DD).",
+    input: { since: z.iso.date().optional() },
+    mcp: true,
+    handler: async ({ since }, { db }) => {
+        const [summary] = await db()
+            .select({ total: count(), earliest: min(items.createdAt), latest: max(items.createdAt) })
+            .from(items)
+            .where(since === undefined ? undefined : gte(items.createdAt, new Date(since)))
+        return { since: since ?? null, total: summary?.total ?? 0, earliest: summary?.earliest ?? null, latest: summary?.latest ?? null }
+    }
 })

@@ -13,6 +13,7 @@ bun run dev
 
 - `GET /health`
 - `GET|POST /items`, `GET /items/:id`
+- `items_summarize` is MCP-only — it has no HTTP route
 - `POST /mcp` — MCP over Streamable HTTP (only capabilities with `mcp: true`)
 
 ## Declaring a capability
@@ -43,14 +44,14 @@ Each surface is opt-in independently, and the type system requires at least one 
 | `mcp: true`, no `route` | no | yes |
 | neither | does not compile | |
 
-So a model-only tool just drops the route:
+So a model-only tool just drops the route — see `items_summarize` in `src/capabilities/items.ts`:
 
 ```ts
-export const summarize = capability({
+export const summarizeItems = capability({
     name: "items_summarize",
-    description: "Only reachable over MCP.",
-    input: { since: z.iso.date() },
-    mcp: true,
+    description: "Count items and report when the first and last one were created...",
+    input: { since: z.iso.date().optional() },
+    mcp: true,                                   // no route: MCP only
     handler: async ({ since }, { db }) => ...
 })
 ```
