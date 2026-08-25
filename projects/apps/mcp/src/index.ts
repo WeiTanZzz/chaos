@@ -1,10 +1,10 @@
 import { createApp } from "@chaos/capability"
-import { capabilities } from "./capabilities/index.ts"
+import { lazyDb } from "@chaos/db"
+import { capabilities } from "@chaos/items"
 import { config } from "./config.ts"
-import { lazyDb } from "./db/client.ts"
 
 const app = createApp({
-    context: { db: lazyDb(config.databaseUrl) },
+    context: { db: lazyDb(config.databasePath) },
     capabilities,
     info: { name: "mcp", version: "0.0.0" }
 })

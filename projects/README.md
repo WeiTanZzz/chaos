@@ -8,32 +8,49 @@ local folders.
 
 ```
 apps/
-  mcp          @chaos/mcp         the service: db schema, item capabilities, config, entry
+  mcp          @chaos/mcp         the service: config, wiring, entry
+  web          @chaos/web         small frontend on the typed client, proxies /api -> the service
 packages/
-  capability   @chaos/capability  declare once -> http route + mcp tool + client types
+  capability   @chaos/capability  declare once -> http route + mcp tool + openapi + client types
+  db           @chaos/db          drizzle schema and sqlite client
+  items        @chaos/items       the item capabilities
 ```
 
 `@chaos/capability` knows nothing about this app: `createCapability<Ctx>()` binds the factory to whatever context
-the handlers should receive, so the package has no dependency on Drizzle, on `Deps`, or on any domain type. The
-app declares its own context in `apps/mcp/src/context.ts`:
+the handlers should receive, so the package has no dependency on Drizzle or on any domain type. A domain package
+declares the slice of context it needs and the app supplies something that satisfies it —
+`packages/items/src/context.ts`:
 
 ```ts
-export type Deps = { db: () => Db }
-export const capability = createCapability<Deps>()
+export type ItemsContext = { db: () => Db }
+export const capability = createCapability<ItemsContext>()
 ```
 
 ## Run
 
 ```
 bun install
-cp apps/mcp/.env.example apps/mcp/.env
-bun run dev
+bun run db:migrate        # creates apps/mcp/mcp.sqlite
+bun run dev               # service on :4400
+bun run dev:web           # frontend on :4500
 ```
 
 - `GET /health`
 - `GET|POST /items`, `GET /items/:id`
 - `POST /mcp` — MCP over Streamable HTTP (only capabilities with `mcp: true`)
-- `items_summarize` is MCP-only — it has no HTTP route
+- `GET /openapi.json`, `GET /docs` — generated from the same declarations
+- `items_summarize` is MCP-only — it has no HTTP route, so the frontend cannot call it and models can
+
+## Documentation
+
+`/openapi.json` is generated from the capability registry at startup: paths and methods from `route`, parameters
+and request bodies from the Zod shape (`:id` becomes a path parameter, the rest becomes query or body depending
+on the method), descriptions from the declaration. Capabilities that are also tools carry `x-mcp-tool`, and the
+document ends with an `x-mcp` block listing every tool with its JSON Schema — including the MCP-only ones that
+have no path.
+
+`/docs` renders that document: a single self-contained HTML page, no CDN, no external assets, no doc-viewer
+dependency. Point Scalar or Swagger UI at `/openapi.json` if you want more.
 
 ## Declaring a capability
 
@@ -69,6 +86,8 @@ The same declarations produce the client types. `createApp` carries the capabili
 `Hono` type, so `hc` gets full route, input and output typing from a **type-only** import — no server code, no
 Drizzle, no MCP SDK in the client bundle.
 
+`apps/web` is exactly this: a page that lists and creates items with no hand-written request types.
+
 ```ts
 import { hc } from "hono/client"
 import type { AppType } from "@chaos/mcp"
@@ -95,11 +114,16 @@ check `response.ok` before trusting the parsed body.
 | HTTP | Hono, `fetch(Request) => Response` | Web standard |
 | Entry | `export default { port, fetch }` | Bun and Workers/Deno both accept it |
 | MCP | `@modelcontextprotocol/sdk` + `@hono/mcp` | No `node:` builtins on this path |
-| DB | Drizzle + postgres.js | Works on Node, Bun, Deno, Workers (`nodejs_compat`) |
+| DB | Drizzle + `bun:sqlite` | **Bun-only** — see below |
 | Config | `process.env` | Available on every target |
 
-The database handle is injected through the app context and created lazily, so no connection is opened at import
-time and capability code never knows which driver it got.
+The database handle is injected through the app context and created lazily, so nothing is opened at import time
+and capability code never knows which driver it got.
+
+The SQLite driver is the one deliberate exception to the table above: `bun:sqlite` is a Bun builtin, so the
+storage layer no longer runs on Workers or Node. It is a test-time choice. Swapping
+`packages/db/src/client.ts` back to `drizzle-orm/postgres-js` (or `drizzle-orm/libsql`) restores portability —
+nothing outside that file knows the difference.
 
 ### Kubernetes / any container
 
@@ -113,7 +137,8 @@ docker build -f apps/mcp/Dockerfile -t mcp .
 cd apps/mcp && npx wrangler deploy
 ```
 
-`wrangler.jsonc` sets `nodejs_compat`. Use Hyperdrive (or any pooled Postgres URL) for `DATABASE_URL`.
+`wrangler.jsonc` sets `nodejs_compat`. This works only once the storage layer is off `bun:sqlite` — swap
+`packages/db/src/client.ts` for postgres.js with Hyperdrive, or libsql.
 
 ### Node
 
@@ -122,13 +147,17 @@ cd apps/mcp && npx wrangler deploy
 
 ## Database
 
-Postgres dialect. To switch, replace `drizzle-orm/postgres-js` in `apps/mcp/src/db/client.ts`, the
-`drizzle-orm/pg-core` imports in `apps/mcp/src/db/schema.ts`, and `dialect` in `apps/mcp/drizzle.config.ts`.
+SQLite through `bun:sqlite`, file at `apps/mcp/mcp.sqlite` (`DATABASE_PATH` to move it). `drizzle-kit` generates
+migrations; applying them goes through `drizzle-orm/bun-sqlite/migrator` rather than `drizzle-kit migrate`, which
+would need `better-sqlite3` or `@libsql/client` installed.
 
 ```
 bun run db:generate
 bun run db:migrate
 ```
+
+To switch dialect, replace the driver in `packages/db/src/client.ts`, the `drizzle-orm/sqlite-core` imports in
+`packages/db/src/schema.ts`, and `dialect` in `apps/mcp/drizzle.config.ts`.
 
 ## Lint, format, test
 

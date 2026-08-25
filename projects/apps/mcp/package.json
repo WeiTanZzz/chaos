@@ -10,15 +10,15 @@
         "dev": "bun run --watch src/index.ts",
         "start": "bun run src/index.ts",
         "db:generate": "drizzle-kit generate",
-        "db:migrate": "drizzle-kit migrate",
+        "db:migrate": "bun run src/migrate.ts",
         "db:studio": "drizzle-kit studio"
     },
     "dependencies": {
         "@chaos/capability": "workspace:*",
+        "@chaos/db": "workspace:*",
+        "@chaos/items": "workspace:*",
         "drizzle-orm": "^0.45.2",
-        "hono": "^4.13.4",
-        "postgres": "^3.4.9",
-        "zod": "^4.4.3"
+        "hono": "^4.13.4"
     },
     "devDependencies": {
         "drizzle-kit": "^0.31.10"

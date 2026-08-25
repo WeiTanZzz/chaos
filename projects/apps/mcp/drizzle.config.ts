@@ -2,8 +2,8 @@ import { defineConfig } from "drizzle-kit"
 import { config } from "./src/config.ts"
 
 export default defineConfig({
-    dialect: "postgresql",
-    schema: "./src/db/schema.ts",
+    dialect: "sqlite",
+    schema: "../../packages/db/src/schema.ts",
     out: "./drizzle",
-    dbCredentials: { url: config.databaseUrl() }
+    dbCredentials: { url: config.databasePath() }
 })

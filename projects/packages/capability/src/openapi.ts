@@ -1,0 +1,95 @@
+import { z } from "zod"
+import type { AnyCapability, Method } from "./capability.ts"
+import type { ServerInfo } from "./mcp.ts"
+
+type JsonSchema = Record<string, unknown>
+
+const pathParams = (path: string) =>
+    path
+        .split("/")
+        .filter(segment => segment.startsWith(":"))
+        .map(segment => segment.slice(1))
+
+const toOpenApiPath = (path: string) => path.replace(/:([^/]+)/g, "{$1}")
+
+const inputSchema = (cap: AnyCapability<never>) => z.toJSONSchema(z.object(cap.input), { io: "input" }) as JsonSchema
+
+const jsonResponses = {
+    "200": { description: "Capability result", content: { "application/json": {} } },
+    "400": {
+        description: "Input failed validation",
+        content: {
+            "application/json": {
+                schema: { type: "object", properties: { error: { type: "string" }, issues: { type: "array", items: { type: "object" } } } }
+            }
+        }
+    }
+}
+
+const operation = (cap: AnyCapability<never>, method: Method, path: string) => {
+    const schema = inputSchema(cap)
+    const properties = (schema.properties ?? {}) as Record<string, unknown>
+    const required = new Set((schema.required ?? []) as string[])
+    const inPath = new Set(pathParams(path))
+    const carriesBody = method !== "get" && method !== "delete"
+
+    const parameters = Object.entries(properties)
+        .filter(([name]) => inPath.has(name) || !carriesBody)
+        .map(([name, value]) => ({ name, in: inPath.has(name) ? "path" : "query", required: inPath.has(name) || required.has(name), schema: value }))
+
+    const bodyProperties = Object.fromEntries(Object.entries(properties).filter(([name]) => carriesBody && !inPath.has(name)))
+
+    return {
+        operationId: cap.name,
+        summary: cap.title ?? cap.name,
+        description: cap.description,
+        ...(cap.mcp ? { "x-mcp-tool": cap.name } : {}),
+        ...(parameters.length > 0 ? { parameters } : {}),
+        ...(Object.keys(bodyProperties).length > 0
+            ? {
+                  requestBody: {
+                      required: true,
+                      content: {
+                          "application/json": {
+                              schema: { type: "object", properties: bodyProperties, required: [...required].filter(name => !inPath.has(name)) }
+                          }
+                      }
+                  }
+              }
+            : {}),
+        responses: jsonResponses
+    }
+}
+
+export const toOpenApi = <Ctx>(capabilities: readonly AnyCapability<Ctx>[], info: ServerInfo, mcpPath: string) => {
+    const caps = capabilities as readonly AnyCapability<never>[]
+    const paths: Record<string, Record<string, unknown>> = {
+        "/health": {
+            get: { operationId: "health", summary: "Health check", responses: { "200": { description: "Service is up", content: { "application/json": {} } } } }
+        }
+    }
+    for (const cap of caps) {
+        const route = cap.route
+        if (route === undefined) continue
+        const path = toOpenApiPath(route.path)
+        paths[path] = { ...paths[path], [route.method]: operation(cap, route.method, route.path) }
+    }
+    return {
+        openapi: "3.1.0",
+        info: { title: info.name, version: info.version },
+        paths,
+        "x-mcp": {
+            endpoint: mcpPath,
+            transport: "streamable-http",
+            tools: caps
+                .filter(cap => cap.mcp)
+                .map(cap => ({
+                    name: cap.name,
+                    title: cap.title ?? cap.name,
+                    description: cap.description,
+                    inputSchema: inputSchema(cap),
+                    route: cap.route === undefined ? null : `${cap.route.method.toUpperCase()} ${cap.route.path}`
+                }))
+        }
+    }
+}

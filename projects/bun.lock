@@ -15,13 +15,21 @@
       "version": "0.0.0",
       "dependencies": {
         "@chaos/capability": "workspace:*",
+        "@chaos/db": "workspace:*",
+        "@chaos/items": "workspace:*",
         "drizzle-orm": "^0.45.2",
         "hono": "^4.13.4",
-        "postgres": "^3.4.9",
-        "zod": "^4.4.3",
       },
       "devDependencies": {
         "drizzle-kit": "^0.31.10",
+      },
+    },
+    "apps/web": {
+      "name": "@chaos/web",
+      "version": "0.0.0",
+      "dependencies": {
+        "@chaos/mcp": "workspace:*",
+        "hono": "^4.13.4",
       },
     },
     "packages/capability": {
@@ -31,6 +39,23 @@
         "@hono/mcp": "^0.3.2",
         "@modelcontextprotocol/sdk": "^1.30.0",
         "hono": "^4.13.4",
+        "zod": "^4.4.3",
+      },
+    },
+    "packages/db": {
+      "name": "@chaos/db",
+      "version": "0.0.0",
+      "dependencies": {
+        "drizzle-orm": "^0.45.2",
+      },
+    },
+    "packages/items": {
+      "name": "@chaos/items",
+      "version": "0.0.0",
+      "dependencies": {
+        "@chaos/capability": "workspace:*",
+        "@chaos/db": "workspace:*",
+        "drizzle-orm": "^0.45.2",
         "zod": "^4.4.3",
       },
     },
@@ -56,7 +81,13 @@
 
     "@chaos/capability": ["@chaos/capability@workspace:packages/capability"],
 
+    "@chaos/db": ["@chaos/db@workspace:packages/db"],
+
+    "@chaos/items": ["@chaos/items@workspace:packages/items"],
+
     "@chaos/mcp": ["@chaos/mcp@workspace:apps/mcp"],
+
+    "@chaos/web": ["@chaos/web@workspace:apps/web"],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
@@ -269,8 +300,6 @@
     "path-to-regexp": ["path-to-regexp@8.4.2", "", {}, "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA=="],
 
     "pkce-challenge": ["pkce-challenge@5.0.1", "", {}, "sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ=="],
-
-    "postgres": ["postgres@3.4.9", "", {}, "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="],
 
     "proxy-addr": ["proxy-addr@2.0.7", "", { "dependencies": { "forwarded": "0.2.0", "ipaddr.js": "1.9.1" } }, "sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg=="],
 

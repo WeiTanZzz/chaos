@@ -1,5 +1,7 @@
 export { type AppOptions, createApp } from "./app.ts"
 export { type AnyCapability, type Capability, type CapabilityFactory, createCapability, InputError, type Method, type Route } from "./capability.ts"
+export { type DocsOptions, mountDocs } from "./docs.ts"
 export { mountHttp } from "./http.ts"
 export { createMcpServer, mountMcp, type ServerInfo } from "./mcp.ts"
+export { toOpenApi } from "./openapi.ts"
 export type { CapabilitiesSchema } from "./schema.ts"
