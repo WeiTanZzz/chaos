@@ -1,4 +1,4 @@
-import type { AppType } from "@chaos/mcp"
+import type { AppType } from "@chaos/api"
 import { hc } from "hono/client"
 
 const client = hc<AppType>(`${window.location.origin}/api`)

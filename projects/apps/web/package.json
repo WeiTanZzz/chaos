@@ -8,7 +8,7 @@
         "start": "bun run src/server.ts"
     },
     "dependencies": {
-        "@chaos/mcp": "workspace:*",
+        "@chaos/api": "workspace:*",
         "hono": "^4.13.4"
     }
 }

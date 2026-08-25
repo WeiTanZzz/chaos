@@ -6,7 +6,7 @@ import { config } from "./config.ts"
 const app = createApp({
     context: { db: lazyDb(config.databasePath) },
     capabilities,
-    info: { name: "mcp", version: "0.0.0" }
+    info: { name: "chaos-api", version: "0.0.0" }
 })
 
 export type AppType = typeof app

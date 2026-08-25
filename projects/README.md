@@ -8,7 +8,7 @@ local folders.
 
 ```
 apps/
-  mcp          @chaos/mcp         the service: config, wiring, entry
+  api          @chaos/api         the service: http api + mcp endpoint, config, wiring, entry
   web          @chaos/web         small frontend on the typed client, proxies /api -> the service
 packages/
   capability   @chaos/capability  declare once -> http route + mcp tool + openapi + client types
@@ -30,7 +30,7 @@ export const capability = createCapability<ItemsContext>()
 
 ```
 bun install
-bun run db:migrate        # creates apps/mcp/mcp.sqlite
+bun run db:migrate        # creates apps/api/api.sqlite
 bun run dev               # service on :4400
 bun run dev:web           # frontend on :4500
 ```
@@ -68,7 +68,7 @@ export const listItems = capability({
 })
 ```
 
-Add it to `apps/mcp/src/capabilities/index.ts` and the HTTP route is live. Path params, query string (GET/DELETE)
+Add it to `apps/api/src/capabilities/index.ts` and the HTTP route is live. Path params, query string (GET/DELETE)
 and JSON body (POST/PUT/PATCH) all feed the same validated input object.
 
 Each surface is opt-in independently, and the type system requires at least one of them:
@@ -90,7 +90,7 @@ Drizzle, no MCP SDK in the client bundle.
 
 ```ts
 import { hc } from "hono/client"
-import type { AppType } from "@chaos/mcp"
+import type { AppType } from "@chaos/api"
 
 const client = hc<AppType>("http://localhost:4400")
 
@@ -128,13 +128,13 @@ nothing outside that file knows the difference.
 ### Kubernetes / any container
 
 ```
-docker build -f apps/mcp/Dockerfile -t mcp .
+docker build -f apps/api/Dockerfile -t chaos-api .
 ```
 
 ### Cloudflare Workers
 
 ```
-cd apps/mcp && npx wrangler deploy
+cd apps/api && npx wrangler deploy
 ```
 
 `wrangler.jsonc` sets `nodejs_compat`. This works only once the storage layer is off `bun:sqlite` — swap
@@ -147,7 +147,7 @@ cd apps/mcp && npx wrangler deploy
 
 ## Database
 
-SQLite through `bun:sqlite`, file at `apps/mcp/mcp.sqlite` (`DATABASE_PATH` to move it). `drizzle-kit` generates
+SQLite through `bun:sqlite`, file at `apps/api/api.sqlite` (`DATABASE_PATH` to move it). `drizzle-kit` generates
 migrations; applying them goes through `drizzle-orm/bun-sqlite/migrator` rather than `drizzle-kit migrate`, which
 would need `better-sqlite3` or `@libsql/client` installed.
 
@@ -157,7 +157,7 @@ bun run db:migrate
 ```
 
 To switch dialect, replace the driver in `packages/db/src/client.ts`, the `drizzle-orm/sqlite-core` imports in
-`packages/db/src/schema.ts`, and `dialect` in `apps/mcp/drizzle.config.ts`.
+`packages/db/src/schema.ts`, and `dialect` in `apps/api/drizzle.config.ts`.
 
 ## Lint, format, test
 

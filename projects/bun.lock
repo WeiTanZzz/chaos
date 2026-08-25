@@ -10,8 +10,8 @@
         "typescript": "5.9.3",
       },
     },
-    "apps/mcp": {
-      "name": "@chaos/mcp",
+    "apps/api": {
+      "name": "@chaos/api",
       "version": "0.0.0",
       "dependencies": {
         "@chaos/capability": "workspace:*",
@@ -28,7 +28,7 @@
       "name": "@chaos/web",
       "version": "0.0.0",
       "dependencies": {
-        "@chaos/mcp": "workspace:*",
+        "@chaos/api": "workspace:*",
         "hono": "^4.13.4",
       },
     },
@@ -79,13 +79,13 @@
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.5.10", "", { "os": "win32", "cpu": "x64" }, "sha512-M+2dgBsl3lXRiTfgPVc2p3anS4Tocojke4rzFLScZ2Y/wmF+36dRb1iHCLiyGqOzQGyTplZH1HnEYviiAqi3nA=="],
 
+    "@chaos/api": ["@chaos/api@workspace:apps/api"],
+
     "@chaos/capability": ["@chaos/capability@workspace:packages/capability"],
 
     "@chaos/db": ["@chaos/db@workspace:packages/db"],
 
     "@chaos/items": ["@chaos/items@workspace:packages/items"],
-
-    "@chaos/mcp": ["@chaos/mcp@workspace:apps/mcp"],
 
     "@chaos/web": ["@chaos/web@workspace:apps/web"],
 
