@@ -71,9 +71,11 @@ so a guard that must hold for both surfaces goes in `all` or in the handler's co
 ## TypeScript
 
 - **No `any`.** `noExplicitAny` is an error and `strict` is on.
-- **No `as`.** `noUnsafeTypeAssertion` is an error. Reach for a type argument, an annotation, `satisfies`, or a
-  real runtime check first — in this repo nine of eleven assertions turned out to be avoidable. If one is truly
-  unavoidable, add `// biome-ignore lint/nursery/noUnsafeTypeAssertion: <reason>` stating why.
+- **No `as`.** `noUnsafeTypeAssertion` is an error and the codebase currently has **zero** assertions — keep it
+  that way. Every one that looked unavoidable had an alternative: a type argument, an annotation, `satisfies`, a
+  runtime check, declaring a generic at construction (`new Hono<BlankEnv, CapabilitiesSchema<...>>()`) instead of
+  casting afterwards, or declaring overloads inside a closure so they capture the type parameter. Exhaust those
+  before adding `// biome-ignore lint/nursery/noUnsafeTypeAssertion: <reason>`.
 - No non-null assertions (`!`), no `enum`, no bare `console` (`console.warn`/`console.error` are allowed).
 - Do not hand-format. `bun run check` applies the house style (4 spaces, double quotes, no semicolons, 160
   columns) from the repo-root Biome config that `biome.json` extends.

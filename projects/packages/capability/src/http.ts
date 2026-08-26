@@ -1,8 +1,7 @@
 import type { Context, Hono, MiddlewareHandler } from "hono"
 import { every } from "hono/combine"
-import type { BlankEnv } from "hono/types"
+import type { BlankEnv, Schema } from "hono/types"
 import { type AnyCapability, InputError } from "./capability.ts"
-import type { CapabilitiesSchema } from "./schema.ts"
 
 const readInput = async (c: Context, method: string) => {
     const params = c.req.param()
@@ -23,8 +22,8 @@ export type HttpOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefix 
     enabled?: boolean
 }
 
-export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefix extends string = "">(
-    app: Hono,
+export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefix extends string, S extends Schema>(
+    app: Hono<BlankEnv, S>,
     { capabilities, context, basePath, middleware = [], enabled = true }: HttpOptions<Ctx, Caps, Prefix>
 ) => {
     const prefix = trimSlash(basePath ?? "")
@@ -45,8 +44,5 @@ export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefi
         if (chain.length === 0) app[route.method](path, handler)
         else app[route.method](path, every(...chain), handler)
     }
-    // The routes were registered in a loop, so Hono cannot infer them: CapabilitiesSchema derives the same
-    // routes from the declarations instead. This is the single point where that derivation is asserted.
-    // biome-ignore lint/nursery/noUnsafeTypeAssertion: the route schema is derived from Caps, not inferrable from the loop
-    return app as unknown as Hono<BlankEnv, CapabilitiesSchema<Caps, Prefix>>
+    return app
 }

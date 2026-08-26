@@ -52,26 +52,34 @@ export class InputError extends Error {
     }
 }
 
-const build = (spec: Spec<string, z.ZodRawShape, unknown, unknown> & { route?: Route; mcp?: boolean }): AnyCapability<unknown> => ({
-    name: spec.name,
-    title: spec.title,
-    description: spec.description,
-    input: spec.input,
-    output: spec.output,
-    route: spec.route,
-    mcp: spec.mcp ?? false,
-    run: async (raw, ctx) => {
-        const parsed = z.object(spec.input).safeParse(raw)
-        if (!parsed.success) throw new InputError(parsed.error.issues)
-        return await spec.handler(parsed.data, ctx)
-    }
-})
-
 /**
  * Binds the capability factory to the context every handler receives, so this package stays free of
  * application types while handlers keep a fully typed context.
  */
-// `build` is written against an erased context so every binding can share one implementation; the factory type
-// is what gives callers their typed handler. TypeScript cannot connect the two.
-// biome-ignore lint/nursery/noUnsafeTypeAssertion: one erased implementation backing every typed binding
-export const createCapability = <Ctx>(): CapabilityFactory<Ctx> => build as CapabilityFactory<Ctx>
+export const createCapability = <Ctx>(): CapabilityFactory<Ctx> => {
+    function capability<N extends string, S extends z.ZodRawShape, O, M extends Method, P extends string>(
+        spec: Spec<N, S, O, Ctx> & { route: Route<M, P>; mcp?: boolean }
+    ): Capability<N, S, O, Route<M, P>, Ctx>
+    function capability<N extends string, S extends z.ZodRawShape, O>(
+        spec: Spec<N, S, O, Ctx> & { route?: undefined; mcp: true }
+    ): Capability<N, S, O, undefined, Ctx>
+    function capability<N extends string, S extends z.ZodRawShape, O, M extends Method, P extends string>(
+        spec: Spec<N, S, O, Ctx> & { route?: Route<M, P>; mcp?: boolean }
+    ): Capability<N, S, O, Route<M, P> | undefined, Ctx> {
+        return {
+            name: spec.name,
+            title: spec.title,
+            description: spec.description,
+            input: spec.input,
+            output: spec.output,
+            route: spec.route,
+            mcp: spec.mcp ?? false,
+            run: async (raw, ctx) => {
+                const parsed = z.object(spec.input).safeParse(raw)
+                if (!parsed.success) throw new InputError(parsed.error.issues)
+                return await spec.handler(parsed.data, ctx)
+            }
+        }
+    }
+    return capability
+}

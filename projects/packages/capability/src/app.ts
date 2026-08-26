@@ -1,8 +1,10 @@
 import { Hono, type MiddlewareHandler } from "hono"
+import type { BlankEnv } from "hono/types"
 import type { AnyCapability } from "./capability.ts"
 import { mountHttp } from "./http.ts"
 import { mountMcp, type ServerInfo } from "./mcp.ts"
 import { mountOpenApi } from "./openapi.ts"
+import type { CapabilitiesSchema } from "./schema.ts"
 
 export type Middleware = {
     /** Everything this app mounts: capability routes, the mcp endpoint, health and the docs. */
@@ -46,7 +48,9 @@ export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[],
     openapiPath = "/openapi.json"
 }: AppOptions<Ctx, Caps, BasePath>) => {
     const { http = true, mcp = true, openapi = true } = surfaces
-    const app = new Hono()
+    // The routes are registered in a loop, so Hono cannot infer them. CapabilitiesSchema derives the same routes
+    // from the declarations, and the app is built with that shape rather than being asserted into it afterwards.
+    const app = new Hono<BlankEnv, CapabilitiesSchema<Caps, BasePath>>()
     for (const handler of middleware.all ?? []) app.use(handler)
     app.get("/health", c => c.json({ status: "ok" }))
     if (openapi) mountOpenApi(app, openapiPath, { capabilities, info, mcpPath, basePath, surfaces: { http, mcp } })
