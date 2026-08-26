@@ -60,5 +60,36 @@ test("tools are hidden from callers who could not run them", async () => {
     const names = async (role: string) => (await rpc({ jsonrpc: "2.0", id: 3, method: "tools/list" }, role)).result.tools.map((t: { name: string }) => t.name)
 
     expect(await names("anonymous")).toEqual(["items_list", "items_get"])
-    expect(await names("member")).toEqual(["items_list", "items_get", "items_summarize"])
+    expect(await names("member")).toEqual(["items_list", "items_get", "items_rename", "items_summarize"])
+})
+
+test("a scoped capability loads its subject and answers 404 when it is absent", async () => {
+    const created = z.object({ id: z.uuid() }).parse(await (await create("before", "member")).json())
+
+    const renamed = await app.request(`/api/v1/items/${created.id}`, {
+        method: "patch",
+        headers: { "content-type": "application/json", ...as("member") },
+        body: JSON.stringify({ name: "after" })
+    })
+    expect(renamed.status).toBe(200)
+    expect(await renamed.json()).toEqual({ id: created.id, name: "after", createdAt: expect.any(String) })
+
+    const missing = await app.request("/api/v1/items/11111111-1111-4111-8111-111111111111", {
+        method: "patch",
+        headers: { "content-type": "application/json", ...as("member") },
+        body: JSON.stringify({ name: "nobody" })
+    })
+    expect(missing.status).toBe(404)
+    expect(await missing.json()).toEqual({ error: "not found", details: { id: "11111111-1111-4111-8111-111111111111" } })
+})
+
+test("authorize still runs before the scope loads anything", async () => {
+    const created = z.object({ id: z.uuid() }).parse(await (await create("guarded", "member")).json())
+
+    const refused = await app.request(`/api/v1/items/${created.id}`, {
+        method: "patch",
+        headers: { "content-type": "application/json", ...as("anonymous") },
+        body: JSON.stringify({ name: "nope" })
+    })
+    expect(refused.status).toBe(403)
 })

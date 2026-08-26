@@ -1,5 +1,5 @@
-import { createItem, deleteItem, getItem, listItems, summarizeItems } from "./items.ts"
+import { createItem, deleteItem, getItem, listItems, renameItem, summarizeItems } from "./items.ts"
 
-export { createItem, deleteItem, getItem, listItems, summarizeItems }
+export { createItem, deleteItem, getItem, listItems, renameItem, summarizeItems }
 
-export const capabilities = [listItems, getItem, createItem, deleteItem, summarizeItems]
+export const capabilities = [listItems, getItem, createItem, renameItem, deleteItem, summarizeItems]

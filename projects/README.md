@@ -83,7 +83,9 @@ export const listItems = capability({
 ```
 
 `input` validates the request and becomes the tool's JSON Schema. `output` is optional: when present it types the
-handler's return value and fills in the 200 response schema in `/openapi.json`. Both live in `@chaos/schema`, so
+handler's return value, is **checked at runtime** (a mismatch is a 500, since it is the service's fault, and
+parsing strips anything the schema does not mention), fills in the 200 response schema in `/openapi.json`, and —
+when it describes an object — becomes the MCP tool's `outputSchema` and `structuredContent`. Both live in `@chaos/schema`, so
 the frontend imports exactly the same definitions — `Item` in `apps/web` is `z.infer` of the schema the handler
 is checked against.
 
@@ -155,6 +157,55 @@ createApp({
 
 `authorize` runs before input validation, so an unauthorised caller gets a 403 rather than a 400 for a malformed
 request. The package never reads `meta`; typing it is up to the app — `createCapability<Deps, Access>()`.
+
+The order of the whole thing: `middleware` → `authorize` → input validation → `scope` → handler → output check,
+all of it inside `instrument`.
+
+**A scope, for checks that depend on the input.** A role check needs only the caller, but *may this caller have
+workspace X* needs the input, needs a query, and usually wants the thing it loaded. `createScopedCapability`
+binds a resolver to a family of capabilities: it runs after validation, before the handler, and whatever it
+returns is merged into the context the handler receives.
+
+```ts
+export const itemCapability = createScopedCapability<Deps, Access, { item: Item }>(async ({ input, context }) => {
+    const { id } = z.object({ id: z.uuid() }).parse(input)
+    const row = await load(context.db(), id)
+    if (row === undefined) throw new CapabilityError(404, "not found", { id })
+    return { item: row }
+})
+
+export const renameItem = itemCapability({
+    name: "items_rename",
+    route: { method: "patch", path: "/items/:id" },
+    handler: async ({ name }, { db, item }) => ...   // item is loaded, checked, typed
+})
+```
+
+The resolver belongs to the factory rather than to `createApp` because the mapping from *what a capability
+declares* to *what its handler receives* is a property of that family. One factory per access level — tenancy,
+workspace, insight — each with its own meta, resolver and hydrated context, is the shape this scales into.
+
+**An instrument hook.** It wraps every capability call on both surfaces, which is the granularity middleware
+cannot reach: over MCP, middleware sees one `POST /mcp` no matter how many tools that request calls.
+
+```ts
+instrument: async (call, run) => {          // call.capability, call.surface, call.c
+    // a span, a timer, a log line, a transaction — anything that needs a call to begin and end
+    return await run()
+}
+```
+
+`apps/api/src/observability.ts` implements it with `@opentelemetry/api`, which is a no-op until a provider is
+registered. Registering one — and picking an exporter, the part that is runtime-specific — happens in
+`src/tracing.ts` at the entry point. `TRACING=true bun run dev` prints spans:
+
+```
+capability items_rename   capability.surface=http  http.route=/items/:id
+capability items_rename   capability.outcome=refused.404
+capability items_summarize  capability.surface=mcp  mcp.tool.name=items_summarize
+```
+
+A refusal is recorded as an outcome rather than an error, so 403s and 404s do not pollute error rates.
 
 **An error that carries a status.** A handler that refuses a request throws `CapabilityError`, and the HTTP
 surface answers with that status instead of a 500. One check in the handler therefore covers both surfaces:

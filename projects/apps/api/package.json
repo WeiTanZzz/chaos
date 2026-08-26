@@ -16,11 +16,13 @@
     "dependencies": {
         "@chaos/capability": "workspace:*",
         "@chaos/schema": "workspace:*",
+        "@opentelemetry/api": "^1.9.1",
+        "@opentelemetry/sdk-trace-base": "^2.10.0",
         "drizzle-orm": "^0.45.2",
-        "hono": "^4.13.4"
+        "hono": "^4.13.4",
+        "zod": "^4.4.3"
     },
     "devDependencies": {
-        "drizzle-kit": "^0.31.10",
-        "zod": "^4.4.3"
+        "drizzle-kit": "^0.31.10"
     }
 }

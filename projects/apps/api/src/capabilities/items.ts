@@ -8,11 +8,13 @@ import {
     type Item,
     listItemsInput,
     listItemsOutput,
+    renameItemInput,
+    renameItemOutput,
     summarizeItemsInput,
     summarizeItemsOutput
 } from "@chaos/schema"
 import { count, desc, eq, gte, max, min } from "drizzle-orm"
-import { capability } from "../context.ts"
+import { capability, itemCapability } from "../context.ts"
 import { items } from "../db/schema.ts"
 
 type Row = typeof items.$inferSelect
@@ -69,9 +71,26 @@ export const deleteItem = capability({
     input: deleteItemInput,
     output: deleteItemOutput,
     route: { method: "delete", path: "/items/:id" },
+    mcp: true,
     handler: async ({ id }, { db }) => {
         const deleted = await db().delete(items).where(eq(items.id, id)).returning()
         return { deleted: deleted.length }
+    }
+})
+
+export const renameItem = itemCapability({
+    name: "items_rename",
+    meta: { role: "member" },
+    title: "Rename item",
+    description: "Rename an existing item.",
+    input: renameItemInput,
+    output: renameItemOutput,
+    route: { method: "patch", path: "/items/:id" },
+    mcp: true,
+    // `item` was loaded and authorised by the scope: no second lookup, no missing-row branch in here.
+    handler: async ({ name }, { db, item }) => {
+        await db().update(items).set({ name }).where(eq(items.id, item.id))
+        return { ...item, name }
     }
 })
 

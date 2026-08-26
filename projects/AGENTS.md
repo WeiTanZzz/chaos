@@ -44,7 +44,8 @@ second copy of a contract.
 - A capability needs at least one surface (`route`, `mcp: true`, or both); the overloads enforce it.
 - Register it in `apps/api/src/capabilities/index.ts` or it does not exist.
 - Handlers return the wire shape. Convert `Date` to an ISO string in the handler — the declared output schema is
-  the contract, not the row type.
+  the contract, not the row type, and it is enforced at runtime: a mismatch is a 500 and unmentioned fields are
+  stripped before they reach the wire.
 
 ## Surfaces
 
@@ -68,6 +69,14 @@ The package holds no notion of users, roles or permissions and must not grow one
   absent from `tools/list` and unknown to `tools/call`.
 - `meta` on a declaration is opaque to the package, and `authorize(capability, context, c)` receives it before
   every call on both surfaces. Requirements belong in the declaration; do not write guards inside handlers.
+- `createScopedCapability(scope)` is for checks that need the input: the scope runs after validation, before the
+  handler, and what it returns is merged into the handler's context. Load-and-authorise-and-hydrate belongs
+  there, not in the handler. The resolver binds to the factory, not to `createApp`.
+- `instrument(call, run)` wraps every call on both surfaces — tracing, timing, a transaction. Middleware cannot
+  do this over MCP, where one request may carry many tool calls.
+
+Lifecycle order: `middleware` → `authorize` → input validation → `scope` → handler → output check, all inside
+`instrument`.
 
 Policy — who may do what — belongs in the app. Do not add roles, scopes or auth schemes to the package.
 `apps/api/src/auth.ts` is the worked example: ranked roles, `meta: { role }` on each declaration, and one
@@ -107,9 +116,17 @@ Nothing under `packages/` or `apps/api/src` may reach for a runtime-specific API
 
 - `apps/api/src/db/client.ts` uses `bun:sqlite` — the only Bun-bound file, and a test-time choice.
 - `apps/api/src/index.ts` exports `{ port, fetch }`, which Bun, workerd and Deno all accept.
+- `apps/api/src/tracing.ts` picks a tracing exporter, which is runtime-specific by nature. Only
+  `@opentelemetry/api` — a no-op without a provider — may be used outside it.
 
 If you need a new capability of the platform, add it behind an injected dependency rather than importing the
 platform directly.
+
+## Configuration
+
+`apps/api/src/config.ts` parses `process.env` with zod at boot and throws with the full list of problems. Add new
+settings there rather than reading `process.env` where you need them, so a bad deployment fails immediately
+instead of at the first request that happens to touch it.
 
 ## Commands and traps
 
