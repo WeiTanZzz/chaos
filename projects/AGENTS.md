@@ -91,6 +91,8 @@ so a guard that must hold for both surfaces goes in `all` or in the handler's co
   casting afterwards, or declaring overloads inside a closure so they capture the type parameter. Exhaust those
   before adding `// biome-ignore lint/nursery/noUnsafeTypeAssertion: <reason>`.
 - No non-null assertions (`!`), no `enum`, no bare `console` (`console.warn`/`console.error` are allowed).
+- `useAwait` is deliberately off: a `handler` must return a Promise by contract, so one that needs no `await` is
+  still legitimately `async`. `noFloatingPromises` and `noMisusedPromises` cover the cases that actually bite.
 - Do not hand-format. `bun run check` applies the house style (4 spaces, double quotes, no semicolons, 160
   columns) from the repo-root Biome config that `biome.json` extends.
 
