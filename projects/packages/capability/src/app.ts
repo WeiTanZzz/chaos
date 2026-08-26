@@ -1,7 +1,7 @@
 import { type Context, Hono, type MiddlewareHandler } from "hono"
 import type { BlankEnv } from "hono/types"
 import type { AnyCapability } from "./capability.ts"
-import type { Authorize, ContextFactory } from "./http.ts"
+import type { Authorize, ContextFactory, Instrument } from "./http.ts"
 import { mountHttp } from "./http.ts"
 import { mountMcp, type ServerInfo } from "./mcp.ts"
 import { mountOpenApi } from "./openapi.ts"
@@ -40,6 +40,8 @@ export type AppOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], BasePath
      * Throw — a `CapabilityError` for a status the http surface can render — to refuse.
      */
     authorize?: Authorize<NoInfer<Ctx>, Caps[number]>
+    /** Wraps every capability call on both surfaces: the place for tracing, timing or a transaction. */
+    instrument?: Instrument<Caps[number]>
     /** Prefix applied to every capability route, e.g. "/api/v1". The paths below are absolute and unaffected. */
     basePath?: BasePath
     mcpPath?: string
@@ -54,6 +56,7 @@ export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[],
     middleware = {},
     visibleTools,
     authorize,
+    instrument,
     basePath,
     mcpPath = "/mcp",
     openapiPath = "/openapi.json"
@@ -65,6 +68,6 @@ export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[],
     for (const handler of middleware.all ?? []) app.use(handler)
     app.get("/health", c => c.json({ status: "ok" }))
     if (openapi) mountOpenApi(app, openapiPath, { capabilities, info, mcpPath, basePath, surfaces: { http, mcp } })
-    if (mcp) mountMcp(app, { path: mcpPath, capabilities, context, info, middleware: middleware.mcp, visibleTools, authorize })
-    return mountHttp(app, { capabilities, context, basePath, middleware: middleware.http, enabled: http, authorize })
+    if (mcp) mountMcp(app, { path: mcpPath, capabilities, context, info, middleware: middleware.mcp, visibleTools, authorize, instrument })
+    return mountHttp(app, { capabilities, context, basePath, middleware: middleware.http, enabled: http, authorize, instrument })
 }

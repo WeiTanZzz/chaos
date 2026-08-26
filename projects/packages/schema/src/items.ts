@@ -18,6 +18,9 @@ export const getItemOutput = itemSchema.nullable()
 export const createItemInput = { name: z.string().min(1) }
 export const createItemOutput = itemSchema
 
+export const renameItemInput = { id: z.uuid(), name: z.string().min(1) }
+export const renameItemOutput = itemSchema
+
 export const deleteItemInput = { id: z.uuid() }
 export const deleteItemOutput = z.object({ deleted: z.number().int() })
 
