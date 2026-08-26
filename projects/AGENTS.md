@@ -66,10 +66,12 @@ The package holds no notion of users, roles or permissions and must not grow one
   status, so one check in the handler covers HTTP and MCP alike.
 - `visibleTools(capability, c)` decides per request which capabilities exist for a caller: excluded ones are
   absent from `tools/list` and unknown to `tools/call`.
+- `meta` on a declaration is opaque to the package, and `authorize(capability, context, c)` receives it before
+  every call on both surfaces. Requirements belong in the declaration; do not write guards inside handlers.
 
 Policy — who may do what — belongs in the app. Do not add roles, scopes or auth schemes to the package.
-`apps/api/src/auth.ts` is the worked example: ranked roles, one `access` map in `capabilities/items.ts` driving
-both the handler guard and `visibleTools`. Its `identify` middleware trusts an `x-role` header — a stand-in for
+`apps/api/src/auth.ts` is the worked example: ranked roles, `meta: { role }` on each declaration, and one
+`authorize` plus one `visibleTools` in `app.ts` acting on it. Its `identify` middleware trusts an `x-role` header — a stand-in for
 authentication, and the place a real deployment would verify a token.
 
 ## Middleware

@@ -26,11 +26,16 @@ export type HttpOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefix 
     middleware?: MiddlewareHandler[]
     /** When false no route is registered, but the returned type is unchanged. */
     enabled?: boolean
+    /** Runs before every capability, on this surface and on mcp alike. Throw to refuse. */
+    authorize?: Authorize<Ctx, Caps[number]>
 }
+
+/** The single interception point an app implements to act on what a capability declared in its `meta`. */
+export type Authorize<Ctx, Cap> = (capability: Cap, context: Ctx, c: Context) => void | Promise<void>
 
 export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefix extends string, S extends Schema>(
     app: Hono<BlankEnv, S>,
-    { capabilities, context, basePath, middleware = [], enabled = true }: HttpOptions<Ctx, Caps, Prefix>
+    { capabilities, context, basePath, middleware = [], enabled = true, authorize }: HttpOptions<Ctx, Caps, Prefix>
 ) => {
     const prefix = trimSlash(basePath ?? "")
     for (const cap of enabled ? capabilities : []) {
@@ -38,7 +43,9 @@ export const mountHttp = <Ctx, Caps extends readonly AnyCapability<Ctx>[], Prefi
         if (route === undefined) continue
         const handler = async (c: Context) => {
             try {
-                const result = await cap.run(await readInput(c, route.method), context(c))
+                const ctx = context(c)
+                await authorize?.(cap, ctx, c)
+                const result = await cap.run(await readInput(c, route.method), ctx)
                 return c.body(JSON.stringify(result), 200, { "content-type": "application/json" })
             } catch (error) {
                 if (error instanceof CapabilityError) {

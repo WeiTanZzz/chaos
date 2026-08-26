@@ -135,6 +135,27 @@ createApp({
 Annotate the parameter as `Context` when you use it — an unannotated one makes TypeScript defer inference and
 the context type collapses to `unknown`.
 
+**A declaration slot and one interception point.** A capability can declare `meta` — opaque to the package — and
+`authorize` receives it before every call, on both surfaces. The requirement lives in the declaration, not in the
+handler:
+
+```ts
+export const deleteItem = capability({
+    name: "items_delete",
+    meta: { role: "admin" },          // what this capability requires
+    route: { method: "delete", path: "/items/:id" },
+    handler: async ({ id }, { db }) => ...   // no guard in here
+})
+
+createApp({
+    authorize: (capability, { caller }) => requireRole(caller, capability.meta?.role ?? "anonymous"),
+    ...
+})
+```
+
+`authorize` runs before input validation, so an unauthorised caller gets a 403 rather than a 400 for a malformed
+request. The package never reads `meta`; typing it is up to the app — `createCapability<Deps, Access>()`.
+
 **An error that carries a status.** A handler that refuses a request throws `CapabilityError`, and the HTTP
 surface answers with that status instead of a 500. One check in the handler therefore covers both surfaces:
 
@@ -154,22 +175,16 @@ visibleTools: (capability, c) => capability.name.startsWith("admin_") === isAdmi
 
 For HTTP the equivalent is `middleware.http` or `route.middleware`, which can reject before the handler runs.
 
-**The example in `apps/api`.** `src/auth.ts` holds the policy — three ranked roles and nothing else — and
-`src/capabilities/items.ts` declares what each capability needs:
+**The example in `apps/api`.** `src/auth.ts` holds the policy — three ranked roles and nothing else. Each
+capability declares `meta: { role }`, and `src/app.ts` turns that into both enforcement and visibility in two
+lines:
 
 ```ts
-export const access = {
-    items_list: "anonymous",
-    items_get: "anonymous",
-    items_create: "member",
-    items_delete: "admin",
-    items_summarize: "member"
-} satisfies Record<string, Role>
+authorize: (capability, { caller }) => requireRole(caller, needs(capability.meta)),
+visibleTools: (capability, c) => allows(callerOf(c), needs(capability.meta))
 ```
 
-That single map drives both enforcement (`requireRole(caller, access.items_create)` inside the handler, so HTTP
-and MCP obey the same rule) and visibility (`visibleTools` in `src/app.ts`). Measured against the running
-service:
+Measured against the running service:
 
 | | `items_list` | `POST /items` | `DELETE /items/:id` | `tools/list` |
 | --- | --- | --- | --- | --- |

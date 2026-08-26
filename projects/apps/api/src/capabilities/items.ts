@@ -12,22 +12,8 @@ import {
     summarizeItemsOutput
 } from "@chaos/schema"
 import { count, desc, eq, gte, max, min } from "drizzle-orm"
-import type { Role } from "../auth.ts"
-import { requireRole } from "../auth.ts"
 import { capability } from "../context.ts"
 import { items } from "../db/schema.ts"
-
-/**
- * What each capability needs. One declaration drives both the guard inside the handler — which covers HTTP and
- * MCP alike — and `visibleTools`, which hides a tool from callers who could not run it.
- */
-export const access = {
-    items_list: "anonymous",
-    items_get: "anonymous",
-    items_create: "member",
-    items_delete: "admin",
-    items_summarize: "member"
-} satisfies Record<string, Role>
 
 type Row = typeof items.$inferSelect
 
@@ -35,6 +21,7 @@ const toItem = (row: Row): Item => ({ id: row.id, name: row.name, createdAt: row
 
 export const listItems = capability({
     name: "items_list",
+    meta: { role: "anonymous" },
     title: "List items",
     description: "List items, newest first.",
     input: listItemsInput,
@@ -46,6 +33,7 @@ export const listItems = capability({
 
 export const getItem = capability({
     name: "items_get",
+    meta: { role: "anonymous" },
     title: "Get item",
     description: "Fetch a single item by id.",
     input: getItemInput,
@@ -60,13 +48,13 @@ export const getItem = capability({
 
 export const createItem = capability({
     name: "items_create",
+    meta: { role: "member" },
     title: "Create item",
     description: "Create an item with the given name.",
     input: createItemInput,
     output: createItemOutput,
     route: { method: "post", path: "/items" },
-    handler: async ({ name }, { db, caller }) => {
-        requireRole(caller, access.items_create)
+    handler: async ({ name }, { db }) => {
         const [row] = await db().insert(items).values({ name }).returning()
         if (row === undefined) throw new Error("insert returned no rows")
         return toItem(row)
@@ -75,13 +63,13 @@ export const createItem = capability({
 
 export const deleteItem = capability({
     name: "items_delete",
+    meta: { role: "admin" },
     title: "Delete item",
     description: "Delete an item by id. Administrators only.",
     input: deleteItemInput,
     output: deleteItemOutput,
     route: { method: "delete", path: "/items/:id" },
-    handler: async ({ id }, { db, caller }) => {
-        requireRole(caller, access.items_delete)
+    handler: async ({ id }, { db }) => {
         const deleted = await db().delete(items).where(eq(items.id, id)).returning()
         return { deleted: deleted.length }
     }
@@ -89,13 +77,13 @@ export const deleteItem = capability({
 
 export const summarizeItems = capability({
     name: "items_summarize",
+    meta: { role: "member" },
     title: "Summarize items",
     description: "Count items and report when the first and last one were created, optionally limited to those created on or after a date (YYYY-MM-DD).",
     input: summarizeItemsInput,
     output: summarizeItemsOutput,
     mcp: true,
-    handler: async ({ since }, { db, caller }) => {
-        requireRole(caller, access.items_summarize)
+    handler: async ({ since }, { db }) => {
         const [summary] = await db()
             .select({ total: count(), earliest: min(items.createdAt), latest: max(items.createdAt) })
             .from(items)

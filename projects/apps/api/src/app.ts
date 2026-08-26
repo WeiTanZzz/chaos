@@ -1,11 +1,10 @@
 import { createApp } from "@chaos/capability"
 import type { Context } from "hono"
-import { allows, callerOf, identify, type Role } from "./auth.ts"
-import { access, capabilities } from "./capabilities/index.ts"
+import { allows, callerOf, identify, type Role, requireRole } from "./auth.ts"
+import { capabilities } from "./capabilities/index.ts"
 import type { Db } from "./db/client.ts"
 
-// Widened for lookup by name: the literal map keeps its exact types where the capabilities declare themselves.
-const required: Record<string, Role | undefined> = access
+const needs = (meta: { role: Role } | undefined): Role => meta?.role ?? "anonymous"
 
 export const buildApp = (db: () => Db) =>
     createApp({
@@ -14,6 +13,8 @@ export const buildApp = (db: () => Db) =>
         info: { name: "chaos-api", version: "0.0.0" },
         basePath: "/api/v1",
         middleware: { all: [identify] },
+        // Both surfaces, one rule, read off what each capability declared about itself.
+        authorize: (capability, { caller }) => requireRole(caller, needs(capability.meta)),
         // A tool the caller may not run is not advertised to them either.
-        visibleTools: (capability, c) => allows(callerOf(c), required[capability.name] ?? "anonymous")
+        visibleTools: (capability, c) => allows(callerOf(c), needs(capability.meta))
     })

@@ -11,10 +11,12 @@ export type Route<M extends Method = Method, P extends string = string> = {
     middleware?: MiddlewareHandler[]
 }
 
-type Spec<N extends string, S extends z.ZodRawShape, O, Ctx> = {
+type Spec<N extends string, S extends z.ZodRawShape, O, Ctx, Meta> = {
     name: N
     title?: string
     description: string
+    /** Opaque to this package: whatever the app wants to declare here, for its own `authorize` to act on. */
+    meta?: Meta
     input: S
     /** Declares the response contract: it types the handler's return and documents the 200 response. */
     output?: z.ZodType<O>
@@ -26,11 +28,13 @@ export type Capability<
     S extends z.ZodRawShape = z.ZodRawShape,
     O = unknown,
     R extends Route | undefined = Route | undefined,
-    Ctx = never
+    Ctx = never,
+    Meta = unknown
 > = {
     name: N
     title?: string
     description: string
+    meta: Meta | undefined
     input: S
     output: z.ZodType<O> | undefined
     route: R
@@ -38,13 +42,13 @@ export type Capability<
     run: (raw: unknown, ctx: Ctx) => Promise<O>
 }
 
-export type AnyCapability<Ctx = never> = Capability<string, z.ZodRawShape, unknown, Route | undefined, Ctx>
+export type AnyCapability<Ctx = never, Meta = unknown> = Capability<string, z.ZodRawShape, unknown, Route | undefined, Ctx, Meta>
 
-export type CapabilityFactory<Ctx> = {
+export type CapabilityFactory<Ctx, Meta = never> = {
     <N extends string, S extends z.ZodRawShape, O, M extends Method, P extends string>(
-        spec: Spec<N, S, O, Ctx> & { route: Route<M, P>; mcp?: boolean }
-    ): Capability<N, S, O, Route<M, P>, Ctx>
-    <N extends string, S extends z.ZodRawShape, O>(spec: Spec<N, S, O, Ctx> & { route?: undefined; mcp: true }): Capability<N, S, O, undefined, Ctx>
+        spec: Spec<N, S, O, Ctx, Meta> & { route: Route<M, P>; mcp?: boolean }
+    ): Capability<N, S, O, Route<M, P>, Ctx, Meta>
+    <N extends string, S extends z.ZodRawShape, O>(spec: Spec<N, S, O, Ctx, Meta> & { route?: undefined; mcp: true }): Capability<N, S, O, undefined, Ctx, Meta>
 }
 
 /**
@@ -71,20 +75,21 @@ export class InputError extends CapabilityError {
  * Binds the capability factory to the context every handler receives, so this package stays free of
  * application types while handlers keep a fully typed context.
  */
-export const createCapability = <Ctx>(): CapabilityFactory<Ctx> => {
+export const createCapability = <Ctx, Meta = never>(): CapabilityFactory<Ctx, Meta> => {
     function capability<N extends string, S extends z.ZodRawShape, O, M extends Method, P extends string>(
-        spec: Spec<N, S, O, Ctx> & { route: Route<M, P>; mcp?: boolean }
-    ): Capability<N, S, O, Route<M, P>, Ctx>
+        spec: Spec<N, S, O, Ctx, Meta> & { route: Route<M, P>; mcp?: boolean }
+    ): Capability<N, S, O, Route<M, P>, Ctx, Meta>
     function capability<N extends string, S extends z.ZodRawShape, O>(
-        spec: Spec<N, S, O, Ctx> & { route?: undefined; mcp: true }
-    ): Capability<N, S, O, undefined, Ctx>
+        spec: Spec<N, S, O, Ctx, Meta> & { route?: undefined; mcp: true }
+    ): Capability<N, S, O, undefined, Ctx, Meta>
     function capability<N extends string, S extends z.ZodRawShape, O, M extends Method, P extends string>(
-        spec: Spec<N, S, O, Ctx> & { route?: Route<M, P>; mcp?: boolean }
-    ): Capability<N, S, O, Route<M, P> | undefined, Ctx> {
+        spec: Spec<N, S, O, Ctx, Meta> & { route?: Route<M, P>; mcp?: boolean }
+    ): Capability<N, S, O, Route<M, P> | undefined, Ctx, Meta> {
         return {
             name: spec.name,
             title: spec.title,
             description: spec.description,
+            meta: spec.meta,
             input: spec.input,
             output: spec.output,
             route: spec.route,
