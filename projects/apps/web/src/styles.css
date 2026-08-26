@@ -143,3 +143,43 @@ li time {
     color: var(--muted);
     font-size: 13.5px;
 }
+
+.role {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 28px;
+    flex-wrap: wrap;
+}
+.role label {
+    color: var(--muted);
+    font-size: 13px;
+}
+.role select {
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--fg);
+    font: inherit;
+    font-size: 13.5px;
+}
+.role .hint {
+    color: var(--muted);
+    font-size: 12px;
+}
+li .meta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+li button {
+    padding: 5px 10px;
+    font-size: 12.5px;
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--line);
+}
+li button:hover {
+    border-color: var(--danger);
+}

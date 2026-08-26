@@ -11,6 +11,15 @@
     <header>
         <h1>Items</h1>
         <p class="sub">Typed client over <code>@chaos/api</code> — every call below is <code>hc&lt;AppType&gt;</code>.</p>
+        <div class="role">
+            <label for="role">Acting as</label>
+            <select id="role">
+                <option value="anonymous">anonymous — read only</option>
+                <option value="member" selected>member — can create</option>
+                <option value="admin">admin — can delete</option>
+            </select>
+            <span class="hint">demo switch: a real client never picks its own role</span>
+        </div>
     </header>
 
     <form id="create">

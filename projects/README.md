@@ -196,10 +196,14 @@ A 403 answers `{"error":"forbidden","details":{"needs":"member","has":"anonymous
 arrives as a tool error — and for a hidden tool it is not a refusal at all: `items_summarize` reports
 *not found* to an anonymous caller, because it was never registered for them.
 
+`apps/web` has a role switcher on the page, so the policy is visible without curl: as `anonymous` the create
+form answers *403 forbidden*, as `member` creating works and deleting does not, as `admin` both do. The failure
+line shows what the API actually said.
+
 `identify` in `src/auth.ts` reads an `x-role` header. That is a stand-in for authentication, not authentication:
 a real deployment verifies a token or session there, which is async work, which is exactly why it belongs in
-middleware rather than in the context factory. `apps/web` sends the header from its proxy, so the browser never
-carries it.
+middleware rather than in the context factory. The proxy in `apps/web` forwards the header and falls back to `ROLE`; letting the page choose is a demo
+affordance, and the opposite of what a real deployment does.
 
 ### Middleware
 
