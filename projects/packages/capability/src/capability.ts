@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from "hono"
+import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { z } from "zod"
 
 export type Method = "get" | "post" | "put" | "patch" | "delete"
@@ -46,9 +47,23 @@ export type CapabilityFactory<Ctx> = {
     <N extends string, S extends z.ZodRawShape, O>(spec: Spec<N, S, O, Ctx> & { route?: undefined; mcp: true }): Capability<N, S, O, undefined, Ctx>
 }
 
-export class InputError extends Error {
-    constructor(readonly issues: z.core.$ZodIssue[]) {
-        super("invalid input")
+/**
+ * An error carrying the status the HTTP surface should answer with. The package never decides what is an error,
+ * only how one is reported: handlers throw these, and both surfaces render them consistently.
+ */
+export class CapabilityError extends Error {
+    constructor(
+        readonly status: ContentfulStatusCode,
+        message: string,
+        readonly details?: unknown
+    ) {
+        super(message)
+    }
+}
+
+export class InputError extends CapabilityError {
+    constructor(issues: z.core.$ZodIssue[]) {
+        super(400, "invalid input", issues)
     }
 }
 

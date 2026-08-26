@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test"
+import type { Context } from "hono"
 import { hc, type InferRequestType, type InferResponseType } from "hono/client"
 import { z } from "zod"
-import { createApp, createCapability } from "../src/index.ts"
+import { CapabilityError, createApp, createCapability } from "../src/index.ts"
 
 type Ctx = { greeting: string }
 
@@ -33,7 +34,7 @@ const toolOnly = capability({
 })
 
 const app = createApp({
-    context: { greeting: "hi" },
+    context: () => ({ greeting: "hi" }),
     capabilities: [echo, hidden, toolOnly],
     info: { name: "test", version: "0.0.0" }
 })
@@ -93,7 +94,7 @@ test("the rpc client is typed from the same declarations", async () => {
 
 test("basePath prefixes every capability route", async () => {
     const prefixed = createApp({
-        context: { greeting: "hi" },
+        context: () => ({ greeting: "hi" }),
         capabilities: [echo],
         info: { name: "test", version: "0.0.0" },
         basePath: "/api/v1"
@@ -113,7 +114,7 @@ test("basePath prefixes every capability route", async () => {
 
 test("app middleware wraps every surface, route middleware only its own route", async () => {
     const stamped = createApp({
-        context: { greeting: "hi" },
+        context: () => ({ greeting: "hi" }),
         capabilities: [
             capability({
                 name: "guarded",
@@ -140,7 +141,7 @@ test("app middleware wraps every surface, route middleware only its own route", 
 test("middleware.all also covers the mcp endpoint", async () => {
     const seen: string[] = []
     const traced = createApp({
-        context: { greeting: "hi" },
+        context: () => ({ greeting: "hi" }),
         capabilities: [echo],
         info: { name: "test", version: "0.0.0" },
         middleware: {
@@ -166,7 +167,7 @@ test("middleware.all also covers the mcp endpoint", async () => {
 
 test("each surface can carry its own middleware", async () => {
     const surfaced = createApp({
-        context: { greeting: "hi" },
+        context: () => ({ greeting: "hi" }),
         capabilities: [echo],
         info: { name: "test", version: "0.0.0" },
         middleware: {
@@ -195,7 +196,7 @@ test("each surface can carry its own middleware", async () => {
 
 test("surfaces decide what a deployment mounts", async () => {
     const httpOnly = createApp({
-        context: { greeting: "hi" },
+        context: () => ({ greeting: "hi" }),
         capabilities: [echo, toolOnly],
         info: { name: "test", version: "0.0.0" },
         surfaces: { mcp: false }
@@ -209,7 +210,7 @@ test("surfaces decide what a deployment mounts", async () => {
     expect(document).not.toHaveProperty("x-mcp")
 
     const mcpOnly = createApp({
-        context: { greeting: "hi" },
+        context: () => ({ greeting: "hi" }),
         capabilities: [echo, toolOnly],
         info: { name: "test", version: "0.0.0" },
         surfaces: { http: false }
@@ -226,7 +227,7 @@ test("surfaces decide what a deployment mounts", async () => {
     expect(listed.status).toBe(200)
 
     const noSchema = createApp({
-        context: { greeting: "hi" },
+        context: () => ({ greeting: "hi" }),
         capabilities: [echo],
         info: { name: "test", version: "0.0.0" },
         surfaces: { openapi: false }
@@ -234,4 +235,81 @@ test("surfaces decide what a deployment mounts", async () => {
 
     expect((await noSchema.request("/openapi.json")).status).toBe(404)
     expect((await noSchema.request("/echo?message=there")).status).toBe(200)
+})
+
+// The package supplies the mechanism — a per-request context, a visibility question and an error that carries a
+// status. Roles, tokens and rules are the app's business; none of them appear here.
+type Caller = { role: string }
+
+const callerCapability = createCapability<Caller>()
+
+const whoAmI = callerCapability({
+    name: "who_am_i",
+    description: "Reports the caller the context was built with.",
+    input: {},
+    route: { method: "get", path: "/me" },
+    mcp: true,
+    handler: async (_input, caller) => ({ role: caller.role })
+})
+
+const adminOnly = callerCapability({
+    name: "admin_only",
+    description: "Refuses anyone but an admin.",
+    input: {},
+    route: { method: "get", path: "/admin" },
+    mcp: true,
+    handler: async (_input, caller) => {
+        if (caller.role !== "admin") throw new CapabilityError(403, "forbidden", { needs: "admin" })
+        return { ok: true }
+    }
+})
+
+const roleApp = createApp({
+    context: (c: Context) => ({ role: c.req.header("x-role") ?? "anonymous" }),
+    capabilities: [whoAmI, adminOnly],
+    info: { name: "test", version: "0.0.0" },
+    visibleTools: (capability, c) => capability.name !== "admin_only" || c.req.header("x-role") === "admin"
+})
+
+const rpcAs = async (role: string | undefined, body: unknown) => {
+    const response = await roleApp.request("/mcp", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json",
+            accept: "application/json, text/event-stream",
+            ...(role === undefined ? {} : { "x-role": role })
+        },
+        body: JSON.stringify(body)
+    })
+    const text = await response.text()
+    return JSON.parse(text.slice(text.indexOf("data: ") + 6))
+}
+
+test("the context is built per request", async () => {
+    expect(await (await roleApp.request("/me", { headers: { "x-role": "admin" } })).json()).toEqual({ role: "admin" })
+    expect(await (await roleApp.request("/me")).json()).toEqual({ role: "anonymous" })
+
+    const called = await rpcAs("viewer", { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "who_am_i", arguments: {} } })
+    expect(called.result.content[0].text).toBe(JSON.stringify({ role: "viewer" }))
+})
+
+test("a thrown CapabilityError picks the http status", async () => {
+    const denied = await roleApp.request("/admin", { headers: { "x-role": "viewer" } })
+    expect(denied.status).toBe(403)
+    expect(await denied.json()).toEqual({ error: "forbidden", details: { needs: "admin" } })
+
+    expect((await roleApp.request("/admin", { headers: { "x-role": "admin" } })).status).toBe(200)
+})
+
+test("visibleTools decides what a caller can see and call", async () => {
+    const asAdmin = await rpcAs("admin", { jsonrpc: "2.0", id: 2, method: "tools/list" })
+    expect(asAdmin.result.tools.map((tool: { name: string }) => tool.name)).toEqual(["who_am_i", "admin_only"])
+
+    const asViewer = await rpcAs("viewer", { jsonrpc: "2.0", id: 3, method: "tools/list" })
+    expect(asViewer.result.tools.map((tool: { name: string }) => tool.name)).toEqual(["who_am_i"])
+
+    // A hidden tool is not merely refused, it does not exist for this caller.
+    const called = await rpcAs("viewer", { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "admin_only", arguments: {} } })
+    expect(JSON.stringify(called)).toContain("admin_only")
+    expect(called.result?.ok).toBeUndefined()
 })

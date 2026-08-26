@@ -55,6 +55,20 @@ information, respect these flags — `/openapi.json` must not advertise a surfac
 The returned type is unchanged by the flags, so a client that type-checks can still 404 against an mcp-only
 deployment. That is deliberate; do not try to make the type conditional.
 
+## Access control
+
+The package holds no notion of users, roles or permissions and must not grow one. It provides mechanism only:
+
+- `context` is a per-request factory, so handlers see the caller on both surfaces. Annotate its parameter as
+  `Context` when you read from it, or inference collapses to `unknown`. Async work (token verification, user
+  lookup) goes in middleware, which leaves its result on the Hono context.
+- `CapabilityError(status, message, details?)` is how a handler refuses — the HTTP surface answers with that
+  status, so one check in the handler covers HTTP and MCP alike.
+- `visibleTools(capability, c)` decides per request which capabilities exist for a caller: excluded ones are
+  absent from `tools/list` and unknown to `tools/call`.
+
+Policy — who may do what — belongs in the app. Do not add roles, scopes or auth schemes to the package.
+
 ## Middleware
 
 `app.use()` on the app `createApp` returns does nothing — the routes are already registered and Hono dispatches

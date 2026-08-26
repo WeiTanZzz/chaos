@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import type { Context, Hono, MiddlewareHandler } from "hono"
 import { every } from "hono/combine"
 import type { AnyCapability } from "./capability.ts"
+import type { ContextFactory } from "./http.ts"
 
 export type ServerInfo = {
     name: string
@@ -23,15 +24,24 @@ export const createMcpServer = <Ctx>(capabilities: readonly AnyCapability<Ctx>[]
 export type McpOptions<Ctx> = {
     path: string
     capabilities: readonly AnyCapability<Ctx>[]
-    context: Ctx
+    context: ContextFactory<Ctx>
     info: ServerInfo
     /** Runs before the mcp endpoint only. */
     middleware?: MiddlewareHandler[]
+    /**
+     * Decides per request which capabilities this caller may see. An excluded capability is absent from
+     * `tools/list` and unknown to `tools/call`. The package asks the question; the app answers it.
+     */
+    visibleTools?: (capability: AnyCapability<Ctx>, c: Context) => boolean | Promise<boolean>
 }
 
-export const mountMcp = <Ctx>(app: Hono, { path, capabilities, context, info, middleware = [] }: McpOptions<Ctx>) => {
+export const mountMcp = <Ctx>(app: Hono, { path, capabilities, context, info, middleware = [], visibleTools }: McpOptions<Ctx>) => {
     const handler = async (c: Context) => {
-        const server = createMcpServer(capabilities, context, info)
+        const visible =
+            visibleTools === undefined
+                ? capabilities
+                : (await Promise.all(capabilities.map(async cap => ((await visibleTools(cap, c)) ? cap : undefined)))).filter(cap => cap !== undefined)
+        const server = createMcpServer(visible, context(c), info)
         const transport = new StreamableHTTPTransport()
         await server.connect(transport)
         return (await transport.handleRequest(c)) ?? c.body(null, 204)

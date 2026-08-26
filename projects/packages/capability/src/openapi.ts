@@ -19,7 +19,7 @@ const jsonResponses = (cap: AnyCapability<never>) => ({
         content: { "application/json": cap.output === undefined ? {} : { schema: z.toJSONSchema(cap.output, { io: "output" }) } }
     },
     "400": {
-        description: "Input failed validation",
+        description: "The capability refused the request (validation, authorisation, anything a handler throws)",
         content: {
             "application/json": {
                 schema: { type: "object", properties: { error: { type: "string" }, issues: { type: "array", items: { type: "object" } } } }

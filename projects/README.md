@@ -115,6 +115,45 @@ In code it is `createApp({ surfaces: { http, mcp, openapi } })`, all defaulting 
 describes every capability route even when `http` is off — a deployment switch does not change what the code
 declares, so keep the typed client pointed at a deployment that serves HTTP.
 
+### Access control
+
+The package carries no notion of users, roles or permissions. It provides three mechanisms an app builds policy
+on top of:
+
+**A per-request context.** `context` is a factory, so a handler sees who is calling — and it sees the same thing
+whether the call arrived over HTTP or as an MCP tool call. Anything async (verifying a token, loading a user)
+belongs in middleware, which stores its result on the Hono context for the factory to read:
+
+```ts
+createApp({
+    middleware: { all: [authenticate] },                          // async work, once per request
+    context: (c: Context) => ({ db, user: c.get("user") }),       // synchronous read
+    capabilities
+})
+```
+
+Annotate the parameter as `Context` when you use it — an unannotated one makes TypeScript defer inference and
+the context type collapses to `unknown`.
+
+**An error that carries a status.** A handler that refuses a request throws `CapabilityError`, and the HTTP
+surface answers with that status instead of a 500. One check in the handler therefore covers both surfaces:
+
+```ts
+handler: async (input, { user }) => {
+    if (!user.isAdmin) throw new CapabilityError(403, "forbidden")
+    ...
+}
+```
+
+**A visibility question.** `visibleTools` runs per request and decides which capabilities exist for this caller.
+An excluded one is absent from `tools/list` and unknown to `tools/call` — hidden, not merely refused:
+
+```ts
+visibleTools: (capability, c) => capability.name.startsWith("admin_") === isAdmin(c)
+```
+
+For HTTP the equivalent is `middleware.http` or `route.middleware`, which can reject before the handler runs.
+
 ### Middleware
 
 Middleware registered on the returned app does **nothing** — Hono dispatches in registration order and the routes

@@ -1,6 +1,7 @@
-import { Hono, type MiddlewareHandler } from "hono"
+import { type Context, Hono, type MiddlewareHandler } from "hono"
 import type { BlankEnv } from "hono/types"
 import type { AnyCapability } from "./capability.ts"
+import type { ContextFactory } from "./http.ts"
 import { mountHttp } from "./http.ts"
 import { mountMcp, type ServerInfo } from "./mcp.ts"
 import { mountOpenApi } from "./openapi.ts"
@@ -25,12 +26,15 @@ export type Surfaces = {
 }
 
 export type AppOptions<Ctx, Caps extends readonly AnyCapability<Ctx>[], BasePath extends string> = {
-    context: Ctx
+    /** Built per request, so a handler can see who is calling. Close over a constant when it never varies. */
+    context: ContextFactory<Ctx>
     capabilities: Caps
     info: ServerInfo
     /** Which surfaces this deployment serves. All on by default; `/health` is always mounted. */
     surfaces?: Surfaces
     middleware?: Middleware
+    /** Per request, decides which capabilities this caller may see as mcp tools. */
+    visibleTools?: (capability: AnyCapability<NoInfer<Ctx>>, c: Context) => boolean | Promise<boolean>
     /** Prefix applied to every capability route, e.g. "/api/v1". The paths below are absolute and unaffected. */
     basePath?: BasePath
     mcpPath?: string
@@ -43,6 +47,7 @@ export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[],
     info,
     surfaces = {},
     middleware = {},
+    visibleTools,
     basePath,
     mcpPath = "/mcp",
     openapiPath = "/openapi.json"
@@ -54,6 +59,6 @@ export const createApp = <Ctx, const Caps extends readonly AnyCapability<Ctx>[],
     for (const handler of middleware.all ?? []) app.use(handler)
     app.get("/health", c => c.json({ status: "ok" }))
     if (openapi) mountOpenApi(app, openapiPath, { capabilities, info, mcpPath, basePath, surfaces: { http, mcp } })
-    if (mcp) mountMcp(app, { path: mcpPath, capabilities, context, info, middleware: middleware.mcp })
+    if (mcp) mountMcp(app, { path: mcpPath, capabilities, context, info, middleware: middleware.mcp, visibleTools })
     return mountHttp(app, { capabilities, context, basePath, middleware: middleware.http, enabled: http })
 }
