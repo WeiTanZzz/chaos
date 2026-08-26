@@ -20,6 +20,7 @@
         "hono": "^4.13.4"
     },
     "devDependencies": {
-        "drizzle-kit": "^0.31.10"
+        "drizzle-kit": "^0.31.10",
+        "zod": "^4.4.3"
     }
 }

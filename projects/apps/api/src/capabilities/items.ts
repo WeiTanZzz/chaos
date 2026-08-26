@@ -1,6 +1,8 @@
 import {
     createItemInput,
     createItemOutput,
+    deleteItemInput,
+    deleteItemOutput,
     getItemInput,
     getItemOutput,
     type Item,
@@ -10,8 +12,22 @@ import {
     summarizeItemsOutput
 } from "@chaos/schema"
 import { count, desc, eq, gte, max, min } from "drizzle-orm"
+import type { Role } from "../auth.ts"
+import { requireRole } from "../auth.ts"
 import { capability } from "../context.ts"
 import { items } from "../db/schema.ts"
+
+/**
+ * What each capability needs. One declaration drives both the guard inside the handler — which covers HTTP and
+ * MCP alike — and `visibleTools`, which hides a tool from callers who could not run it.
+ */
+export const access = {
+    items_list: "anonymous",
+    items_get: "anonymous",
+    items_create: "member",
+    items_delete: "admin",
+    items_summarize: "member"
+} satisfies Record<string, Role>
 
 type Row = typeof items.$inferSelect
 
@@ -49,10 +65,25 @@ export const createItem = capability({
     input: createItemInput,
     output: createItemOutput,
     route: { method: "post", path: "/items" },
-    handler: async ({ name }, { db }) => {
+    handler: async ({ name }, { db, caller }) => {
+        requireRole(caller, access.items_create)
         const [row] = await db().insert(items).values({ name }).returning()
         if (row === undefined) throw new Error("insert returned no rows")
         return toItem(row)
+    }
+})
+
+export const deleteItem = capability({
+    name: "items_delete",
+    title: "Delete item",
+    description: "Delete an item by id. Administrators only.",
+    input: deleteItemInput,
+    output: deleteItemOutput,
+    route: { method: "delete", path: "/items/:id" },
+    handler: async ({ id }, { db, caller }) => {
+        requireRole(caller, access.items_delete)
+        const deleted = await db().delete(items).where(eq(items.id, id)).returning()
+        return { deleted: deleted.length }
     }
 })
 
@@ -63,7 +94,8 @@ export const summarizeItems = capability({
     input: summarizeItemsInput,
     output: summarizeItemsOutput,
     mcp: true,
-    handler: async ({ since }, { db }) => {
+    handler: async ({ since }, { db, caller }) => {
+        requireRole(caller, access.items_summarize)
         const [summary] = await db()
             .select({ total: count(), earliest: min(items.createdAt), latest: max(items.createdAt) })
             .from(items)

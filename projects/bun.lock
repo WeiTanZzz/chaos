@@ -21,6 +21,7 @@
       },
       "devDependencies": {
         "drizzle-kit": "^0.31.10",
+        "zod": "^4.4.3",
       },
     },
     "apps/web": {

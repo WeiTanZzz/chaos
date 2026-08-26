@@ -68,6 +68,9 @@ The package holds no notion of users, roles or permissions and must not grow one
   absent from `tools/list` and unknown to `tools/call`.
 
 Policy — who may do what — belongs in the app. Do not add roles, scopes or auth schemes to the package.
+`apps/api/src/auth.ts` is the worked example: ranked roles, one `access` map in `capabilities/items.ts` driving
+both the handler guard and `visibleTools`. Its `identify` middleware trusts an `x-role` header — a stand-in for
+authentication, and the place a real deployment would verify a token.
 
 ## Middleware
 

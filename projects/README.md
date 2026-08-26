@@ -154,6 +154,38 @@ visibleTools: (capability, c) => capability.name.startsWith("admin_") === isAdmi
 
 For HTTP the equivalent is `middleware.http` or `route.middleware`, which can reject before the handler runs.
 
+**The example in `apps/api`.** `src/auth.ts` holds the policy — three ranked roles and nothing else — and
+`src/capabilities/items.ts` declares what each capability needs:
+
+```ts
+export const access = {
+    items_list: "anonymous",
+    items_get: "anonymous",
+    items_create: "member",
+    items_delete: "admin",
+    items_summarize: "member"
+} satisfies Record<string, Role>
+```
+
+That single map drives both enforcement (`requireRole(caller, access.items_create)` inside the handler, so HTTP
+and MCP obey the same rule) and visibility (`visibleTools` in `src/app.ts`). Measured against the running
+service:
+
+| | `items_list` | `POST /items` | `DELETE /items/:id` | `tools/list` |
+| --- | --- | --- | --- | --- |
+| anonymous | 200 | 403 | 403 | `items_list`, `items_get` |
+| member | 200 | 200 | 403 | + `items_summarize` |
+| admin | 200 | 200 | 200 | + `items_summarize` |
+
+A 403 answers `{"error":"forbidden","details":{"needs":"member","has":"anonymous"}}`. Over MCP the same refusal
+arrives as a tool error — and for a hidden tool it is not a refusal at all: `items_summarize` reports
+*not found* to an anonymous caller, because it was never registered for them.
+
+`identify` in `src/auth.ts` reads an `x-role` header. That is a stand-in for authentication, not authentication:
+a real deployment verifies a token or session there, which is async work, which is exactly why it belongs in
+middleware rather than in the context factory. `apps/web` sends the header from its proxy, so the browser never
+carries it.
+
 ### Middleware
 
 Middleware registered on the returned app does **nothing** — Hono dispatches in registration order and the routes

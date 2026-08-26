@@ -18,6 +18,9 @@ export const getItemOutput = itemSchema.nullable()
 export const createItemInput = { name: z.string().min(1) }
 export const createItemOutput = itemSchema
 
+export const deleteItemInput = { id: z.uuid() }
+export const deleteItemOutput = z.object({ deleted: z.number().int() })
+
 export const summarizeItemsInput = { since: z.iso.date().optional() }
 export const summarizeItemsOutput = z.object({
     since: z.iso.date().nullable(),
