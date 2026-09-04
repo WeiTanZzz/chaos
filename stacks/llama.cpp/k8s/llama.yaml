@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm
+---
+# Headless service required by the StatefulSet for stable pod DNS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama-server-headless
+  namespace: llm
+spec:
+  clusterIP: None
+  selector:
+    app: llama-server
+  ports:
+    - name: http
+      port: 8080
+---
+# Load-balances across replicas. This is the address clients use.
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama-server
+  namespace: llm
+spec:
+  selector:
+    app: llama-server
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: llama-server
+  namespace: llm
+spec:
+  serviceName: llama-server-headless
+  replicas: 2
+  selector:
+    matchLabels:
+      app: llama-server
+  template:
+    metadata:
+      labels:
+        app: llama-server
+    spec:
+      # One replica per worker; both cpx62 nodes are fully committed to inference.
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: llama-server
+              topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: fetch-model
+          image: curlimages/curl:latest
+          env:
+            - name: MODEL_FILE
+              value: Qwen2.5-7B-Instruct-Q4_K_M.gguf
+            - name: MODEL_URL
+              value: https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              F="/models/$MODEL_FILE"
+              if [ -f "$F" ]; then echo "model present, skipping"; exit 0; fi
+              curl -fL --retry 5 --retry-delay 10 -o "$F.part" "$MODEL_URL"
+              mv "$F.part" "$F"
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      containers:
+        - name: llama-server
+          image: ghcr.io/ggml-org/llama.cpp:server
+          args:
+            - -m
+            - /models/Qwen2.5-7B-Instruct-Q4_K_M.gguf
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8080"
+            # 16 vCPU on cpx62; leave 2 for kubelet, CNI and everything else.
+            - -t
+            - "14"
+            # Prefill is slow on CPU, so keep the context modest.
+            - -c
+            - "4096"
+            # CPU compute is already scarce; concurrency only makes slots fight.
+            - --parallel
+            - "1"
+            - --jinja
+            - --metrics
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: "14"
+              memory: 8Gi
+            # No cpu limit on purpose: llama.cpp's inference threads spin, and
+            # cgroup CFS throttling wrecks throughput.
+            limits:
+              memory: 12Gi
+          # Loading a 4.5 GB GGUF takes a while; without this the liveness probe
+          # kills the pod mid-load and it restarts forever.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          volumeMounts:
+            - name: models
+              mountPath: /models
+              readOnly: true
+  volumeClaimTemplates:
+    - metadata:
+        name: models
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: hcloud-volumes
+        resources:
+          requests:
+            storage: 30Gi
