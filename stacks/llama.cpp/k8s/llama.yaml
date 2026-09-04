@@ -58,6 +58,10 @@ spec:
       initContainers:
         - name: fetch-model
           image: curlimages/curl:latest
+          # curlimages/curl runs as a non-root user, but a freshly provisioned
+          # hcloud volume is owned by root, so the download cannot be written.
+          securityContext:
+            runAsUser: 0
           env:
             - name: MODEL_FILE
               value: Qwen2.5-7B-Instruct-Q4_K_M.gguf

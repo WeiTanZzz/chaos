@@ -2,8 +2,8 @@
 
 Deploys `llama-server` onto `chaos-k8s` (provisioned by `../../../terraform/hetzner-k8s`).
 
-Read `../README.md` first for the throughput you can actually expect — this
-cluster has no GPU and 7B–8B Q4_K_M is the practical ceiling.
+Read `../README.md` first for measured throughput — this cluster has no GPU,
+but a 7B Q4_K_M still generates ~34 tok/s per replica.
 
 ## Cluster shape
 

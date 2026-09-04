@@ -50,22 +50,35 @@ Neither target here has a usable GPU:
 - **Hetzner Cloud** — no GPU instances exist in the CX/CPX lines, so `chaos-k8s`
   is CPU only. The `server-cuda` image and `nvidia.com/gpu` resources do not apply.
 
-## Expected throughput on chaos-k8s
+## Measured throughput on chaos-k8s
 
-Workers are `cpx62`: 16 shared AMD EPYC vCPU, 32 GB RAM, 640 GB NVMe. Token
-generation is bound by memory bandwidth, not core count, and shared vCPUs give
-less bandwidth than bare metal. Estimates, not measured:
+Workers are `cpx62`: 16 shared AMD EPYC vCPU, 32 GB RAM, 640 GB NVMe.
+
+Measured with the `k8s/` manifest as configured (`-t 14`, `-c 4096`,
+`--parallel 1`), Qwen2.5-7B-Instruct Q4_K_M, single request, two runs of 97 and
+600 generated tokens:
+
+| | tok/s |
+|---|---|
+| generation | **34** |
+| prompt / prefill | **120–140** |
+
+Extrapolating by model size (token generation is roughly bandwidth-bound, so it
+scales inversely with the weights that must be read per token). These are
+**not** measured:
 
 | model | Q4_K_M size | est. tok/s |
 |---|---|---|
-| 3B–4B | ~2.5 GB | 10–15 |
-| 7B–8B | ~4.5 GB | 5–8 |
-| 14B | ~9 GB | 2–3 |
-| 30B+ | 20 GB+ | < 1, unusable |
+| 3B–4B | ~2.5 GB | ~55 |
+| 7B–8B | 4.4 GB | 34 (measured) |
+| 14B | ~9 GB | ~16 |
+| 32B | ~20 GB | ~7 |
 
-Prefill is compute-bound and benefits from the 16 cores (tens of tok/s), but long
-prompts still mean a noticeable time-to-first-token.
+**34 tok/s is comfortably interactive** — well above reading speed (~10 tok/s),
+and prefill is fast enough that time-to-first-token stays under a second for
+short prompts. A 14B at ~16 tok/s is still perfectly usable.
 
-**7B–8B at Q4_K_M is the sweet spot.** Good enough for async jobs, batch work and
-low-frequency internal tooling. Not good enough for interactive chat or anything
-user-facing.
+The real limit is concurrency, not latency. `--parallel 1` serves one request at
+a time; raising it splits the same CPU across slots rather than adding capacity,
+and replicas are capped at one per worker node. This is a fine single-user or
+low-QPS backend. It is not a substitute for a GPU under real concurrent load.
