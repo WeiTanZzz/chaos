@@ -132,13 +132,18 @@ Two `cpx62` workers at €183.59/month = **€367.18/month**. A month is 730 hou
 | 35B-A3B, `--parallel 4` | 92 | 242M | €1.52 |
 | 35B-A3B, `--parallel 8` | 101 | 264M | €1.39 |
 
-The same model on OpenRouter is $0.70/M output (≈ €0.64). So **even saturated
-24/7, self-hosting costs 2.2x the API price for the same model**. Breaking even
-needs 218 tok/s sustained — 2.2x this cluster's measured peak — so on this
-hardware the break-even point does not exist.
+The same model served by others runs $0.70–1.60/M output depending on provider
+and quantisation ($0.90 is OpenRouter's default route, ≈ €0.83). So **even
+saturated 24/7, self-hosting costs about 1.7x the API price for the same
+model**. Breaking even needs 168 tok/s sustained — 1.7x this cluster's measured
+peak — so on this hardware the break-even point does not exist.
 
-At realistic single-user volumes it is not close: 10M tokens/month works out to
-€36.72/M, and 1M tokens/month to €367/M.
+The comparison gets worse against a better model: `gpt-oss-120b` is $0.17/M
+output on DeepInfra at bf16, which is **8x cheaper than this cluster's best
+case** for a 117B model.
+
+At realistic single-user volumes none of it is close: 10M tokens/month works out
+to €36.72/M, and 1M tokens/month to €367/M.
 
 Self-hosting here buys data residency, offline availability and a fixed bill.
 It does not buy cheaper tokens.
