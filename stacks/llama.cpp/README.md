@@ -74,11 +74,25 @@ scales inversely with the weights that must be read per token). These are
 | 14B | ~9 GB | ~16 |
 | 32B | ~20 GB | ~7 |
 
+This model holds for dense weights only. **MoE breaks it, and by less than the
+arithmetic suggests**: `Qwen3.6-35B-A3B` activates 3B of 35B parameters, which
+predicts ~84 tok/s, but measures **28** — better than the 7.2 tok/s a dense 35B
+would give, yet below the 34 tok/s of a dense 7B. See
+[`k8s/BENCHMARKS.md`](k8s/BENCHMARKS.md).
+
 **34 tok/s is comfortably interactive** — well above reading speed (~10 tok/s),
 and prefill is fast enough that time-to-first-token stays under a second for
 short prompts. A 14B at ~16 tok/s is still perfectly usable.
 
-The real limit is concurrency, not latency. `--parallel 1` serves one request at
-a time; raising it splits the same CPU across slots rather than adding capacity,
-and replicas are capped at one per worker node. This is a fine single-user or
-low-QPS backend. It is not a substitute for a GPU under real concurrent load.
+`--parallel` adds real capacity, and costs nothing in single-request latency.
+Raising it from 1 to 8 takes aggregate throughput across both replicas from 61
+to 174 tok/s while single-request speed stays at 34. CPU generation is
+bandwidth-bound, so batching N sequences reads the weights once per step and
+produces N tokens. `--parallel 1` leaves two thirds of the machine idle. What it
+does cost is context: `-c` is the total KV budget divided across slots.
+
+Replicas are still capped at one per worker node. This is a fine single-user or
+low-QPS backend; it is not a substitute for a GPU under real concurrent load.
+
+Full concurrency sweeps, the MoE result, the memory ceiling and cost-per-token
+are in [`k8s/BENCHMARKS.md`](k8s/BENCHMARKS.md).

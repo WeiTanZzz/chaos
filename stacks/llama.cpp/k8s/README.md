@@ -89,6 +89,11 @@ metrics adapter.
 Replicas are also capped by the node count: each one wants a whole worker, so
 `replicas: 2` is the ceiling until `agent_nodepools[].count` goes up.
 
+Before adding nodes, raise `--parallel`. Measured, it roughly triples aggregate
+throughput at no cost to single-request latency — see
+[`BENCHMARKS.md`](BENCHMARKS.md), which also records what each model actually
+costs per million tokens on this hardware.
+
 ## Changing the model
 
 Edit both the `MODEL_FILE`/`MODEL_URL` env vars in the init container and the
