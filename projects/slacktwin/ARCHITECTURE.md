@@ -506,8 +506,10 @@ Repo: `slack-dispatcher`.
 3. Subscribe to user events; implement `apps.event.authorizations.list` fan-out; delete `membership.ts` and the
    channel allowlist. **Done 2026-09-06** (dispatcher PR #9; the posting allowlist stays for bot identity).
 4. Rewrite `classify.ts` for `observe` / `trigger` and subtypes; add `SentMessageLog` and `authored_by`.
+   **Done 2026-09-06** (PR #9 for the log and tagging, PR #12 for the observe stream).
 5. Protocol v2 frames and shared schema package; outbound ops incl. `identity`; `EventBuffer`. Schemas landed as
    `src/protocol/v2.ts` (dispatcher PR #10, 2026-09-06); v1 runtimes stay supported until they send `hello`.
+   **Done 2026-09-06** (PR #11: negotiation, event frames, offline buffer, outbound ops, loop control).
 6. HITL DM rendering and `hitl_resolution`.
 7. Bun platform adapter with Redis; k8s manifests under `chaos/stacks/`. **Platform done 2026-09-06** (dispatcher
    PR #8); manifests pending.
@@ -519,7 +521,8 @@ Exit: a runtime stub connected over protocol v2 receives every event the user ca
 
 Repo: `twin-runtime`. Toolchain already moved to Bun (runtime PR #7, 2026-09-06).
 
-1. `tools/` registry on `@chaos/capability`; MCP server; the seven core tools.
+1. `tools/` registry on `@chaos/capability`; MCP server; the seven core tools. **Done 2026-09-06** (runtime PR #8;
+   the capability package is vendored as `packages/capability`).
 2. `AgentRunner` interface; Claude Code adapter via MCP; delete `parseEscalate` and text-as-reply.
 3. Pipeline (§4.2) with FlowRule v2, thread state, grace timer. Triage as rule set first.
 4. Protocol v2 client replacing `transport.ts`; record `observe` events.
