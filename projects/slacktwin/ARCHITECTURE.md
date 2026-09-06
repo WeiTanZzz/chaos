@@ -526,7 +526,8 @@ Repo: `twin-runtime`. Toolchain already moved to Bun (runtime PR #7, 2026-09-06)
 
 1. `tools/` registry on `@chaos/capability`; MCP server; the seven core tools. **Done 2026-09-06** (runtime PR #8;
    the capability package is vendored as `packages/capability`).
-2. `AgentRunner` interface; Claude Code adapter via MCP; delete `parseEscalate` and text-as-reply.
+2. `AgentRunner` interface; Claude Code adapter via MCP; delete `parseEscalate` and text-as-reply. **Done
+   2026-09-06** (runtime PR #9; the legacy adapter stays until the desktop is re-wrapped).
 3. Pipeline (§4.2) with FlowRule v2, thread state, grace timer. Triage as rule set first.
 4. Protocol v2 client replacing `transport.ts`; record `observe` events.
 5. Rewrite `system/*.md` defaults for the tool-based protocol.
@@ -536,7 +537,8 @@ configured conversations with the configured identity, and escalates via tool ca
 
 ### Phase 3 — headless server and web UI
 
-1. `server/` package: WS client, control API, static `web/`, process/fs ops for Node/Bun.
+1. `server/` package: WS client, control API, static `web/`, process/fs ops for Bun. **Host and v2 client done
+   2026-09-06** (runtime PR #10); static `web/` pending.
 2. Move React panels to `web/`; they consume the control API only.
 3. Container image; hosted deployment of one user under `chaos/stacks/`.
 4. Tauri becomes a shell around `server/` + `web/`.
