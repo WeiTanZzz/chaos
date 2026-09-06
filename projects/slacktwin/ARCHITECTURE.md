@@ -71,7 +71,8 @@ build the object; tests use in-memory implementations.
 | Port | Responsibility | Cloudflare impl | Bun / k8s impl |
 | --- | --- | --- | --- |
 | `InstallStore` | team → bot token, bot user id | KV | Redis hash |
-| `UserCredentialStore` | (team, user) → encrypted user token, granted scopes, authorized_at | Per-user Durable Object storage | Redis, encrypted values |
+| `UserCredentialStore` | (team, user) → user token encrypted with AES-GCM (KEK from `Secrets`), granted scopes, authorized_at | KV, encrypted values | Redis, encrypted values |
+| `OAuthStateStore` | single-use OAuth `state` bound to (team, user), 10 min TTL | KV | Redis |
 | `SessionHub` | per-user `Session`: `connect` (upgrade), `isConnected`, `close`, `broadcast`, plus durable `state` (channels, team, runtime id) | `RuntimeSessionDO` with hibernation API | in-process registry over `Bun.serve` WebSockets + Redis pub/sub for multi-replica fan-out |
 | `OtpStore` | single-use codes with TTL, pending bindings | `OtpStoreDO` | Redis `SET … EX`, `GETDEL` |
 | `BindingStore` | runtime id → Slack user, for reconnects without a new code | KV | Redis |
@@ -123,8 +124,10 @@ Two layers, one Slack app:
 
 Token handling:
 
-- User tokens live only in `UserCredentialStore`, encrypted. They never travel to the runtime. All Slack calls on
-  behalf of the user are performed by the dispatcher.
+- User tokens live only in `UserCredentialStore`, encrypted at rest; the plaintext exists only inside a request.
+  They never travel to the runtime. All Slack calls on behalf of the user are performed by the dispatcher.
+- The user starts authorization from Slack (`/authorize`, or a button in the bot's DM); the dispatcher mints a
+  single-use `state` bound to that Slack user and rejects a callback whose `authed_user.id` differs.
 - Revocation (`tokens_revoked` event, `account_inactive` errors) deletes the credential and evicts the session
   with a distinct close code so the runtime shows "re-authorize".
 - Binding a runtime to a user (OTP flow) stays as today, but the binding is `(team, user) → runtime_id`, not
