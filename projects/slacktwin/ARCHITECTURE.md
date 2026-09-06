@@ -528,9 +528,10 @@ Repo: `twin-runtime`. Toolchain already moved to Bun (runtime PR #7, 2026-09-06)
    the capability package is vendored as `packages/capability`).
 2. `AgentRunner` interface; Claude Code adapter via MCP; delete `parseEscalate` and text-as-reply. **Done
    2026-09-06** (runtime PR #9; the legacy adapter stays until the desktop is re-wrapped).
-3. Pipeline (§4.2) with FlowRule v2, thread state, grace timer. Triage as rule set first.
+3. Pipeline (§4.2) with FlowRule v2, thread state, grace timer. Triage as rule set first. **Done 2026-09-07**
+   (runtime PR #11, wired into the headless host; the desktop still runs the legacy executor).
 4. Protocol v2 client replacing `transport.ts`; record `observe` events.
-5. Rewrite `system/*.md` defaults for the tool-based protocol.
+5. Rewrite `system/*.md` defaults for the tool-based protocol. **Done 2026-09-07** (runtime PR #11).
 
 Exit: with the desktop app still as host, the twin observes all traffic, stays silent by default, replies in
 configured conversations with the configured identity, and escalates via tool calls.
