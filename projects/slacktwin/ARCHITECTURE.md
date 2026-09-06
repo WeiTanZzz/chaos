@@ -502,19 +502,21 @@ Repo: `slack-dispatcher`.
    In-memory implementations for tests. Exit: current behaviour unchanged, tests green against in-memory ports.
    **Done 2026-09-06** on `feature/ports`, together with the move to Bun.
 2. Add per-user OAuth with `user_scope`, `UserCredentialStore` with encryption, `tokens_revoked` handling.
+   **Done 2026-09-06** (dispatcher PR #7).
 3. Subscribe to user events; implement `apps.event.authorizations.list` fan-out; delete `membership.ts` and the
    channel allowlist.
 4. Rewrite `classify.ts` for `observe` / `trigger` and subtypes; add `SentMessageLog` and `authored_by`.
 5. Protocol v2 frames and shared schema package; outbound ops incl. `identity`; `EventBuffer`.
 6. HITL DM rendering and `hitl_resolution`.
-7. Bun platform adapter with Redis; k8s manifests under `chaos/stacks/`.
+7. Bun platform adapter with Redis; k8s manifests under `chaos/stacks/`. **Platform done 2026-09-06** (dispatcher
+   PR #8); manifests pending.
 
 Exit: a runtime stub connected over protocol v2 receives every event the user can see with correct
 `authored_by`, can post as user and as bot, and receives HITL resolutions from Slack buttons.
 
 ### Phase 2 — runtime core: agent run, registry, silence
 
-Repo: `twin-runtime`.
+Repo: `twin-runtime`. Toolchain already moved to Bun (runtime PR #7, 2026-09-06).
 
 1. `tools/` registry on `@chaos/capability`; MCP server; the seven core tools.
 2. `AgentRunner` interface; Claude Code adapter via MCP; delete `parseEscalate` and text-as-reply.
