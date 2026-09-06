@@ -24,11 +24,11 @@ worker, not only developers.
 | Escape hatches | Model-detected "counterpart wants the human / asks if this is AI" forces escalation and hands the thread over. Owner posting in a thread silences the agent there; resuming is explicit. |
 | Non-negotiable rule | The agent never denies being an AI when asked. Not user-configurable. |
 | Reply grace period | Configurable per conversation. Default 5 min for DMs, 0 for channels. Working-hours split off by default. |
-| Deployment | Dispatcher: Cloudflare Workers and k8s (Node/Bun + Redis) from one codebase behind ports. Runtime: local (Tauri) and hosted (one process per user). |
+| Deployment | Dispatcher: Cloudflare Workers and k8s (Bun + Redis) from one codebase behind ports. Runtime: local (Tauri) and hosted (one process per user). |
 | Model runtime | Interface designed for a bare model with no file tools. Runtime owns tools and memory access. First adapter is Claude Code via MCP; OpenAI-compatible (llama.cpp / Qwen) follows for triage. |
 | Silence | A first-class outcome. Most observed messages produce no reply. |
 | Rewrite scope | Not a teardown. Dispatcher: auth model, ports, tagging, streams. Runtime: agent-run interface, tool registry, headless host, the 40 KB wiring file. Memory layout and UI panels are kept. |
-| Repos | Private, bound as submodules under `chaos/projects/`. |
+| Repos | Private, bound as submodules under `chaos/projects/slacktwin/`. Bun is the toolchain everywhere (package manager, test runner, scripts); no pnpm, no vitest. |
 
 ## 2. System overview
 
@@ -40,7 +40,7 @@ worker, not only developers.
 │  Hono app, slack-edge, zod.  Platform-agnostic core + Ports (§3.1)              │
 │  install store · user credentials · session hub · otp · cache · sent-log ·      │
 │  event buffer · rate limiter                                                     │
-│  Cloudflare impl: KV + Durable Objects        Node impl: Redis + ws              │
+│  Cloudflare impl: KV + Durable Objects        Bun impl: Redis + Bun.serve ws     │
 └──────────────────────────────┬──────────────────────────────────────────────────┘
                                │ WebSocket, protocol v2 (§3.7): observe / trigger / hitl / outbound
                                ▼
@@ -68,12 +68,14 @@ Everything the dispatcher touches outside the request is behind an interface. Th
 object through its context factory instead of reading `c.env` bindings directly. Composition roots per platform
 build the object; tests use in-memory implementations.
 
-| Port | Responsibility | Cloudflare impl | Node / k8s impl |
+| Port | Responsibility | Cloudflare impl | Bun / k8s impl |
 | --- | --- | --- | --- |
 | `InstallStore` | team → bot token, bot user id | KV | Redis hash |
 | `UserCredentialStore` | (team, user) → encrypted user token, granted scopes, authorized_at | Per-user Durable Object storage | Redis, encrypted values |
-| `SessionHub` | per-user connection: `attach`, `isConnected`, `send`, `evict`, `metadata` | `RuntimeSessionDO` with hibernation API | in-process `ws` registry + Redis pub/sub for multi-replica fan-out |
+| `SessionHub` | per-user `Session`: `connect` (upgrade), `isConnected`, `close`, `broadcast`, plus durable `state` (channels, team, runtime id) | `RuntimeSessionDO` with hibernation API | in-process registry over `Bun.serve` WebSockets + Redis pub/sub for multi-replica fan-out |
 | `OtpStore` | single-use codes with TTL, pending bindings | `OtpStoreDO` | Redis `SET … EX`, `GETDEL` |
+| `BindingStore` | runtime id → Slack user, for reconnects without a new code | KV | Redis |
+| `SlackApi` | the subset of Slack's Web API the dispatcher calls, bound per token | slack-edge `SlackAPIClient` (fetch-based, shared by all platforms) | same |
 | `Cache` | users, channels, authorizations, memberships with TTL | KV | Redis |
 | `SentMessageLog` | (channel, ts) → { user, identity } for runtime-authored messages, TTL ≈ 24 h | DO storage | Redis with expiry |
 | `EventBuffer` | per-user queue of events while runtime is offline, bounded, TTL | DO storage | Redis list |
@@ -83,11 +85,12 @@ build the object; tests use in-memory implementations.
 Rules:
 
 - Domain code under `src/slack/**` and `src/runtime/**` imports only `Ports` types, never `cloudflare:workers`,
-  `KVNamespace`, `DurableObject*`, or `ws`.
-- `src/platform/cloudflare/` and `src/platform/node/` own the entry points (`wrangler` default export vs a
-  Bun/Node `serve`), the WebSocket upgrade mechanics, and the `Ports` construction.
-- WebSocket handling is split into a transport-neutral `Connection` interface (`send`, `close`, `onMessage`,
-  `onClose`) and per-platform glue. `SessionHub` talks to `Connection`, not to a socket type.
+  `KVNamespace`, `DurableObject*`, or `Bun.*`.
+- `src/platform/cloudflare/`, `src/platform/bun/` and `src/platform/memory/` own the entry points (`wrangler`
+  default export vs `Bun.serve`), the WebSocket upgrade mechanics, and the `Ports` construction. The memory
+  platform backs the tests and doubles as a single-process dev server.
+- Logic every platform needs identically (OTP codes, session state) is written once over a tiny `KeyValue`
+  contract that Durable Object storage, a `Map` and Redis all satisfy; platforms wrap it, they do not reimplement it.
 - slack-edge is fetch-based and runs unchanged on both platforms.
 - Encryption at rest for user tokens: AES-GCM via WebCrypto with a key-encryption key from `Secrets`. Available on
   both platforms without a dependency.
@@ -235,7 +238,7 @@ and stable per install (already the case in twin-runtime), and reconnects presen
 One codebase, two entry points:
 
 - **Cloudflare**: `wrangler deploy`, KV + DO bindings as today.
-- **k8s**: a Bun/Node container running the Node platform adapter, Redis for every stateful port, a
+- **k8s**: a Bun container running the Bun platform adapter, Redis for every stateful port, a
   `Deployment` with N replicas behind an ingress; Redis pub/sub carries fan-out to whichever replica holds the
   user's socket. Private deployments create their own Slack app and set the same secrets.
 
@@ -494,13 +497,14 @@ Repo: `slack-dispatcher`.
 
 1. Introduce `Ports` and move all KV/DO access behind them; Cloudflare implementations wrap existing code.
    In-memory implementations for tests. Exit: current behaviour unchanged, tests green against in-memory ports.
+   **Done 2026-09-06** on `feature/ports`, together with the move to Bun.
 2. Add per-user OAuth with `user_scope`, `UserCredentialStore` with encryption, `tokens_revoked` handling.
 3. Subscribe to user events; implement `apps.event.authorizations.list` fan-out; delete `membership.ts` and the
    channel allowlist.
 4. Rewrite `classify.ts` for `observe` / `trigger` and subtypes; add `SentMessageLog` and `authored_by`.
 5. Protocol v2 frames and shared schema package; outbound ops incl. `identity`; `EventBuffer`.
 6. HITL DM rendering and `hitl_resolution`.
-7. Node platform adapter with Redis; k8s manifests under `chaos/stacks/`.
+7. Bun platform adapter with Redis; k8s manifests under `chaos/stacks/`.
 
 Exit: a runtime stub connected over protocol v2 receives every event the user can see with correct
 `authored_by`, can post as user and as bot, and receives HITL resolutions from Slack buttons.
