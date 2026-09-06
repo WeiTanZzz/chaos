@@ -1,7 +1,7 @@
 # SlackTwin v2 — target architecture
 
-Status: design baseline, 2026-09-06. Covers both repos under `projects/`:
-[`slack-dispatcher`](../slack-dispatcher) (Slack-facing edge) and [`twin-runtime`](../twin-runtime)
+Status: design baseline, 2026-09-06. Covers both repos under `projects/slacktwin/`:
+[`dispatcher`](./dispatcher) (Slack-facing edge) and [`runtime`](./runtime)
 (agent runtime). Decisions recorded here are settled; open items are listed at the end.
 
 Note: `twin-runtime/docs/dispatcher-protocol.md` describes an OTP → JWT → ticket flow and a

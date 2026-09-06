@@ -1,9 +1,9 @@
 [submodule "portfolio-text"]
 	path = portfolio-text
 	url = https://github.com/WeiTanZzz/portfolio-text.git
-[submodule "projects/slack-dispatcher"]
-	path = projects/slack-dispatcher
+[submodule "projects/slacktwin/dispatcher"]
+	path = projects/slacktwin/dispatcher
 	url = https://github.com/SlackTwin/slack-dispatcher.git
-[submodule "projects/twin-runtime"]
-	path = projects/twin-runtime
+[submodule "projects/slacktwin/runtime"]
+	path = projects/slacktwin/runtime
 	url = https://github.com/SlackTwin/twin-runtime.git
