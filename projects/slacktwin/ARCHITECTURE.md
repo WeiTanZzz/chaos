@@ -510,12 +510,15 @@ Repo: `slack-dispatcher`.
 5. Protocol v2 frames and shared schema package; outbound ops incl. `identity`; `EventBuffer`. Schemas landed as
    `src/protocol/v2.ts` (dispatcher PR #10, 2026-09-06); v1 runtimes stay supported until they send `hello`.
    **Done 2026-09-06** (PR #11: negotiation, event frames, offline buffer, outbound ops, loop control).
-6. HITL DM rendering and `hitl_resolution`.
+6. HITL DM rendering and `hitl_resolution`. **Done 2026-09-06** (PR #13).
 7. Bun platform adapter with Redis; k8s manifests under `chaos/stacks/`. **Platform done 2026-09-06** (dispatcher
    PR #8); manifests pending.
 
 Exit: a runtime stub connected over protocol v2 receives every event the user can see with correct
 `authored_by`, can post as user and as bot, and receives HITL resolutions from Slack buttons.
+
+**Phase 1 code complete 2026-09-06** (dispatcher PRs #6–#13). Outstanding: k8s manifests and the deployment
+steps (secrets, Slack app manifest), deferred until every phase is done.
 
 ### Phase 2 — runtime core: agent run, registry, silence
 
