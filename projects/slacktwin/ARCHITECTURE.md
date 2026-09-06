@@ -504,9 +504,10 @@ Repo: `slack-dispatcher`.
 2. Add per-user OAuth with `user_scope`, `UserCredentialStore` with encryption, `tokens_revoked` handling.
    **Done 2026-09-06** (dispatcher PR #7).
 3. Subscribe to user events; implement `apps.event.authorizations.list` fan-out; delete `membership.ts` and the
-   channel allowlist.
+   channel allowlist. **Done 2026-09-06** (dispatcher PR #9; the posting allowlist stays for bot identity).
 4. Rewrite `classify.ts` for `observe` / `trigger` and subtypes; add `SentMessageLog` and `authored_by`.
-5. Protocol v2 frames and shared schema package; outbound ops incl. `identity`; `EventBuffer`.
+5. Protocol v2 frames and shared schema package; outbound ops incl. `identity`; `EventBuffer`. Schemas landed as
+   `src/protocol/v2.ts` (dispatcher PR #10, 2026-09-06); v1 runtimes stay supported until they send `hello`.
 6. HITL DM rendering and `hitl_resolution`.
 7. Bun platform adapter with Redis; k8s manifests under `chaos/stacks/`. **Platform done 2026-09-06** (dispatcher
    PR #8); manifests pending.
