@@ -548,8 +548,9 @@ Exit: the same build runs as a container and inside Tauri.
 
 ### Phase 4 — learning
 
-1. Episode extraction on thread close.
-2. Incremental distillation over episodes; `policy/reply-policy.md`.
+1. Episode extraction on thread close. **Done 2026-09-07** (runtime PR #13).
+2. Incremental distillation over episodes; `policy/reply-policy.md`. **Done 2026-09-07** (runtime PR #13; the
+   server wires distillation only once a `TextModel` is configured).
 3. OpenAI-compatible adapter; triage on the local Qwen deployment. **Runner done 2026-09-07** (runtime PR #12,
    with `TextModel` implementations and persistent pending HITL); model-backed triage pending.
 4. Replay evaluation and trust display.
