@@ -540,9 +540,11 @@ configured conversations with the configured identity, and escalates via tool ca
 
 1. `server/` package: WS client, control API, static `web/`, process/fs ops for Bun. **Host and v2 client done
    2026-09-06** (runtime PR #10); static `web/` pending.
-2. Move React panels to `web/`; they consume the control API only.
-3. Container image; hosted deployment of one user under `chaos/stacks/`.
-4. Tauri becomes a shell around `server/` + `web/`.
+2. Move React panels to `web/`; they consume the control API only. **Done 2026-09-07** (runtime PR #15: `/api`
+   surface, SSE, static serving, six pages).
+3. Container image; hosted deployment of one user under `chaos/stacks/`. Image exists (server `Dockerfile`);
+   manifests deferred with deployment.
+4. Tauri becomes a shell around `server/` + `web/`. In review (runtime PR #16).
 
 Exit: the same build runs as a container and inside Tauri.
 
