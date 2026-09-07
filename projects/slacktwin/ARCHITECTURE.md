@@ -552,8 +552,9 @@ Exit: the same build runs as a container and inside Tauri.
 2. Incremental distillation over episodes; `policy/reply-policy.md`. **Done 2026-09-07** (runtime PR #13; the
    server wires distillation only once a `TextModel` is configured).
 3. OpenAI-compatible adapter; triage on the local Qwen deployment. **Runner done 2026-09-07** (runtime PR #12,
-   with `TextModel` implementations and persistent pending HITL); model-backed triage pending.
-4. Replay evaluation and trust display.
+   with `TextModel` implementations and persistent pending HITL). **Model-backed triage done 2026-09-07** (PR #14).
+4. Replay evaluation and trust display. **Evaluation done 2026-09-07** (PR #14, `policy/evaluation.{json,md}`);
+   showing it in the UI pending.
 
 ### Phase 5 — polish
 
