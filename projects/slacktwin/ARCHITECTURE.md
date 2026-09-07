@@ -550,7 +550,8 @@ Exit: the same build runs as a container and inside Tauri.
 
 1. Episode extraction on thread close.
 2. Incremental distillation over episodes; `policy/reply-policy.md`.
-3. OpenAI-compatible adapter; triage on the local Qwen deployment.
+3. OpenAI-compatible adapter; triage on the local Qwen deployment. **Runner done 2026-09-07** (runtime PR #12,
+   with `TextModel` implementations and persistent pending HITL); model-backed triage pending.
 4. Replay evaluation and trust display.
 
 ### Phase 5 — polish
