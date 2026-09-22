@@ -6,6 +6,8 @@
 
 # scratch
 tmp/
+.tmp/
+output/
 
 # node / bun
 node_modules/
