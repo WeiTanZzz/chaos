@@ -7,3 +7,6 @@
 [submodule "private"]
 	path = private
 	url = https://github.com/WeiTanZzz/chaos-private.git
+[submodule "agent-skills"]
+	path = agent-skills
+	url = https://github.com/WeiTanZzz/agent-skills.git
