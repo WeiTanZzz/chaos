@@ -5,7 +5,8 @@
     "type": "module",
     "sideEffects": false,
     "exports": {
-        ".": "./src/index.ts"
+        ".": "./src/index.ts",
+        "./stdio": "./src/stdio.ts"
     },
     "dependencies": {
         "@hono/mcp": "^0.3.2",
