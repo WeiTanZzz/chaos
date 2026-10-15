@@ -56,6 +56,10 @@ information, respect these flags — `/openapi.json` must not advertise a surfac
 The returned type is unchanged by the flags, so a client that type-checks can still 404 against an mcp-only
 deployment. That is deliberate; do not try to make the type conditional.
 
+For mcp with no http at all — a server a client launches as a subprocess — use `serveStdio` from
+`@chaos/capability/stdio`. The context is a value built once per process, and `authorize`/`instrument` take no Hono
+`Context`. It lives on its own subpath so nothing that imports the main entry pulls in the stdio transport.
+
 ## Access control
 
 The package holds no notion of users, roles or permissions and must not grow one. It provides mechanism only:
@@ -114,6 +118,8 @@ so a guard that must hold for both surfaces goes in `all` or in the handler's co
 
 Nothing under `packages/` or `apps/api/src` may reach for a runtime-specific API. The two deliberate exceptions:
 
+- `packages/capability/src/stdio.ts` uses the SDK's stdio transport, which reads `node:process`. Only the
+  `./stdio` subpath reaches it.
 - `apps/api/src/db/client.ts` uses `bun:sqlite` — the only Bun-bound file, and a test-time choice.
 - `apps/api/src/index.ts` exports `{ port, fetch }`, which Bun, workerd and Deno all accept.
 - `apps/api/src/tracing.ts` picks a tracing exporter, which is runtime-specific by nature. Only
